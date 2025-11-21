@@ -4,7 +4,7 @@ import "./globals.css";
 import { Providers } from '@/lib/providers';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ToastContainer } from '@/components/toast';
-import { LanguageProvider } from '@/lib/language-provider'; // ✅ NEW IMPORT
+import { validateEnv } from '@/lib/validate-env'; // ✅ Added import
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   description: "Gérez vos agents téléphoniques IA",
 };
 
+// ✅ Validate environment on startup (will crash app if vars are missing)
+validateEnv();
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,11 +33,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
-          <ThemeProvider>
-            <LanguageProvider> {/* ✅ WRAP WITH LANGUAGE PROVIDER */}
-              {children}
-            </LanguageProvider>
-          </ThemeProvider>
+          <ThemeProvider>{children}</ThemeProvider>
           <ToastContainer />
         </Providers>
       </body>

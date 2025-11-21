@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { Phone, Clock, CheckCircle, TrendingUp } from 'lucide-react';
-import { useTranslation } from '@/lib/language-provider';
-import { API_CONFIG, UI_CONFIG } from '@/lib/constants'; // ✅ FIX: Import both
+import { useQuery } from '@tanstack/react-query';
+import { API_CONFIG } from '@/lib/constants';
+import { supabase } from '@/lib/supabase';
 
 interface Stats {
   totalCalls: number;
@@ -13,89 +12,85 @@ interface Stats {
   completedCalls: number;
 }
 
-const statsCache = {
-  data: null as Stats | null,
-  timestamp: 0,
-};
+const colorClasses = {
+  blue: 'bg-blue-50 text-blue-600',
+  green: 'bg-green-50 text-green-600',
+  purple: 'bg-purple-50 text-purple-600',
+  orange: 'bg-orange-50 text-orange-600',
+} as const;
+
+// ✅ OPTIMIZED: Uses count queries instead of loading all calls into memory
+async function fetchStats(): Promise<Stats> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!client) throw new Error('Client not found');
+
+  const { data: agentIds } = await supabase
+    .from('agents')
+    .select('retell_agent_id')
+    .eq('client_id', client.user_id);
+
+  const agentIdList = agentIds?.map(a => a.retell_agent_id) || [];
+  
+  if (agentIdList.length === 0) {
+    return {
+      totalCalls: 0,
+      agents: 0,
+      avgDuration: 0,
+      completedCalls: 0,
+    };
+  }
+
+  // ✅ OPTIMIZED: Use count queries for better performance
+  const { count: totalCalls } = await supabase
+    .from('call_history')
+    .select('*', { count: 'exact', head: true })
+    .in('retell_agent_id', agentIdList);
+
+  const { count: completedCalls } = await supabase
+    .from('call_history')
+    .select('*', { count: 'exact', head: true })
+    .in('retell_agent_id', agentIdList)
+    .eq('call_status', 'completed');
+
+  const { count: agents } = await supabase
+    .from('agents')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', client.user_id);
+
+  // ✅ For average, limit to last 30 days to prevent memory issues
+  const { data: recentCalls } = await supabase
+    .from('call_history')
+    .select('call_duration_seconds')
+    .in('retell_agent_id', agentIdList)
+    .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+
+  const avgDuration = recentCalls && recentCalls.length > 0 
+    ? Math.round(recentCalls.reduce((sum, c) => sum + (c.call_duration_seconds || 0), 0) / recentCalls.length)
+    : 0;
+
+  return {
+    totalCalls: totalCalls || 0,
+    agents: agents || 0,
+    avgDuration,
+    completedCalls: completedCalls || 0,
+  };
+}
 
 export default function DashboardOverview() {
-  const [stats, setStats] = useState<Stats>({
-    totalCalls: 0,
-    agents: 0,
-    avgDuration: 0,
-    completedCalls: 0,
+  const { data: stats, isLoading: loading, error } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: fetchStats,
+    staleTime: API_CONFIG.CACHE_DURATION,
+    retry: API_CONFIG.RETRY_ATTEMPTS,
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { t } = useTranslation();
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      const now = Date.now();
-      // ✅ FIX: Use API_CONFIG.CACHE_DURATION
-      if (statsCache.data && (now - statsCache.timestamp) < API_CONFIG.CACHE_DURATION) {
-        setStats(statsCache.data);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error(t.errors.unauthorized);
-
-        const { data: client } = await supabase
-          .from('clients')
-          .select('user_id')
-          .eq('user_id', user.id)
-          .single();
-
-        if (!client) throw new Error(t.errors.notFound);
-
-        const { data: agentIds } = await supabase
-          .from('agents')
-          .select('retell_agent_id')
-          .eq('client_id', client.user_id);
-
-        const agentIdList = agentIds?.map(a => a.retell_agent_id) || [];
-
-        const { data: calls, error: callsError } = await supabase
-          .from('call_history')
-          .select('*')
-          .in('retell_agent_id', agentIdList);
-
-        if (callsError) throw callsError;
-
-        const totalCalls = calls?.length || 0;
-        const completedCalls = calls?.filter(c => c.call_status === 'completed').length || 0;
-        const totalDuration = calls?.reduce((sum, c) => sum + (c.call_duration_seconds || 0), 0) || 0;
-        const avgDuration = totalCalls > 0 ? Math.round(totalDuration / totalCalls) : 0;
-
-        const { count: agents } = await supabase
-          .from('agents')
-          .select('*', { count: 'exact', head: true })
-          .eq('client_id', client.user_id);
-
-        const result = {
-          totalCalls,
-          agents: agents || 0,
-          avgDuration,
-          completedCalls,
-        };
-
-        statsCache.data = result;
-        statsCache.timestamp = now;
-
-        setStats(result);
-      } catch (err) {
-        console.error('Error:', err);
-        setError(t.errors.internalError);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [t]);
 
   if (loading) {
     return (
@@ -118,7 +113,51 @@ export default function DashboardOverview() {
   if (error) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800">{error}</p>
+        <p className="text-red-800">{error.message}</p>
+      </div>
+    );
+  }
+
+  const StatCard = ({ 
+    icon: Icon, 
+    label, 
+    value, 
+    color 
+  }: { 
+    icon: React.ElementType; 
+    label: string; 
+    value: string | number; 
+    color: keyof typeof colorClasses 
+  }) => {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 transition-colors">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">{label}</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+          </div>
+          <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
+            <Icon size={24} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ✅ Add empty state for no data
+  if (stats && stats.totalCalls === 0) {
+    return (
+      <div>
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
+          <p className="text-gray-600 mt-1">Real-time statistics for your AI agents</p>
+        </div>
+        
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+          <Phone className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No calls yet</h3>
+          <p className="text-gray-600 text-sm">Your agents haven't made any calls. Check back soon!</p>
+        </div>
       </div>
     );
   }
@@ -126,75 +165,23 @@ export default function DashboardOverview() {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">{t.dashboard.nav.overview}</h2>
-        <p className="text-gray-600 mt-1">{t.stats.aboutText}</p>
+        <h2 className="text-3xl font-bold text-gray-900">Overview</h2>
+        <p className="text-gray-600 mt-1">Real-time statistics for your AI agents</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard 
-          icon={Phone} 
-          label={t.stats.totalCalls} 
-          value={stats.totalCalls} 
-          color="blue" 
-        />
-        <StatCard 
-          icon={TrendingUp} 
-          label={t.stats.activeAgents} 
-          value={stats.agents} 
-          color="green" 
-        />
-        <StatCard 
-          icon={Clock} 
-          label={t.stats.avgDuration} 
-          value={`${stats.avgDuration}s`} 
-          color="purple" 
-        />
-        <StatCard 
-          icon={CheckCircle} 
-          label={t.stats.completedCalls} 
-          value={stats.completedCalls} 
-          color="orange" 
-        />
+        <StatCard icon={Phone} label="Total Calls" value={stats!.totalCalls} color="blue" />
+        <StatCard icon={TrendingUp} label="Active Agents" value={stats!.agents} color="green" />
+        <StatCard icon={Clock} label="Average Duration" value={`${stats!.avgDuration}s`} color="purple" />
+        <StatCard icon={CheckCircle} label="Completed Calls" value={stats!.completedCalls} color="orange" />
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900">{t.stats.aboutTitle}</h3>
+        <h3 className="text-lg font-semibold text-blue-900">About This Dashboard</h3>
         <p className="text-blue-800 mt-2">
-          {t.stats.aboutText}
+          These statistics are automatically calculated from your AI agents' call history. 
+          Check the <span className="font-semibold">Call History</span> section to see details for each call.
         </p>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ 
-  icon: Icon, 
-  label, 
-  value, 
-  color 
-}: { 
-  icon: React.ElementType; 
-  label: string; 
-  value: string | number; 
-  color: 'blue' | 'green' | 'purple' | 'orange';
-}) {
-  const colorClasses = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    orange: 'bg-orange-50 text-orange-600',
-  } as const;
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 transition-colors">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
-        </div>
-        <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-          <Icon size={24} />
-        </div>
       </div>
     </div>
   );

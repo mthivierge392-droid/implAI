@@ -1,86 +1,115 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, Cpu } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTranslation } from '@/lib/language-provider'; // ✅ NEW IMPORT
-
-// API hooks
-const useAgents = () => {
-  return useQuery({
-    queryKey: ['agents'],
-    queryFn: async () => {
-      const response = await fetch('/api/agents');
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error loading agents');
-      }
-      const data = await response.json();
-      return data.agents as Agent[];
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-  });
-};
-
-const useUpdateAgentPrompt = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async ({ agentId, prompt, retellLlmId }: { agentId: string; prompt: string; retellLlmId: string }) => {
-      const response = await fetch('/api/agents', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId, prompt, retellLlmId }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error updating agent');
-      }
-      
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['agents'] });
-    },
-  });
-};
 
 export default function AgentsPage() {
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [editingPrompt, setEditingPrompt] = useState('');
-  const { t } = useTranslation(); // ✅ USE TRANSLATION
-  
-  const { data: agents = [], isLoading: loading, error } = useAgents();
-  const updateMutation = useUpdateAgentPrompt();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: client } = await supabase
+        .from('clients')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!client) throw new Error('Client not found');
+
+      const { data, error } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('client_id', client.user_id);
+
+      if (error) throw error;
+      setAgents(data || []);
+    } catch (err) {
+      console.error('Error loading agents:', err);
+      setLoading(false);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+  }, [fetchAgents]);
 
   const handleEditPrompt = (agent: Agent) => {
     setSelectedAgent(agent);
     setEditingPrompt(agent.prompt || '');
+    setError(null);
   };
 
   const handleSavePrompt = async () => {
     if (!selectedAgent || !editingPrompt.trim()) return;
 
-    updateMutation.mutate(
-      {
-        agentId: selectedAgent.id,
-        prompt: editingPrompt,
-        retellLlmId: selectedAgent.retell_llm_id,
-      },
-      {
-        onSuccess: () => {
-          setSelectedAgent(null);
-          showToast(t.agents.promptUpdated, 'success');
-        },
-        onError: (error) => {
-          console.error('Error:', error);
-          showToast(t.agents.saveError, 'error');
-        },
+    setSaving(true);
+    setError(null);
+    const originalPrompt = selectedAgent.prompt;
+
+    try {
+      // Get session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError('Not authenticated. Please login again.');
+        showToast('Not authenticated', 'error');
+        setSaving(false);
+        return;
       }
-    );
+
+      // Optimistic update
+      const updatedAgents = agents.map(a => 
+        a.id === selectedAgent.id ? { ...a, prompt: editingPrompt } : a
+      );
+      setAgents(updatedAgents);
+
+      // API call with explicit auth token
+      const response = await fetch('/api/retell/update-llm', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}` // ✅ Pass token
+        },
+        body: JSON.stringify({
+          llm_id: selectedAgent.retell_llm_id,
+          general_prompt: editingPrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Update failed: ${response.status}`);
+      }
+
+      // Database update
+      await supabase
+        .from('agents')
+        .update({ prompt: editingPrompt })
+        .eq('id', selectedAgent.id);
+
+      setSelectedAgent(null);
+      showToast('Prompt updated successfully', 'success');
+    } catch (error) {
+      console.error('Error saving prompt:', error);
+      setAgents(prev => prev.map(a => 
+        a.id === selectedAgent.id ? { ...a, prompt: originalPrompt } : a
+      ));
+      setError('Failed to save prompt. Please try again.');
+      showToast('Error saving prompt', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -103,10 +132,12 @@ export default function AgentsPage() {
     );
   }
 
-  if (error) {
+  if (agents.length === 0) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800">{t.agents.loadError}</p>
+      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <Cpu className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No agents created.</h3>
+        <p className="text-gray-600 text-sm">Contact us to create your first agent.</p>
       </div>
     );
   }
@@ -114,87 +145,102 @@ export default function AgentsPage() {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">{t.agents.title}</h2>
-        <p className="text-gray-600 mt-1">{t.agents.subtitle}</p>
+        <h2 className="text-3xl font-bold text-gray-900">My Agents</h2>
+        <p className="text-gray-600 mt-1">Manage and customize your AI agents</p>
       </div>
 
-      {agents.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-          <p className="text-gray-600 text-lg">{t.agents.noAgents}</p>
-          <p className="text-gray-500 text-sm mt-2">{t.agents.contactToCreate}</p>
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {agents.map(agent => (
-            <div 
-              key={agent.id} 
-              className="bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 transition-colors"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{agent.agent_name}</h3>
-                  <div className="mt-3 space-y-2">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">{t.agents.agentId}:</span> {agent.retell_agent_id}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">{t.agents.voice}:</span> {agent.voice}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium text-gray-700">{t.agents.greeting}:</span> {agent.begin_sentence}
-                    </p>
-                  </div>
+      <div className="grid gap-4">
+        {agents.map(agent => (
+          <div 
+            key={agent.id} 
+            className="bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 transition-colors"
+          >
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">{agent.agent_name}</h3>
+                <div className="mt-3 space-y-2">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-700">Agent ID:</span> {agent.retell_agent_id}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-700">Voice:</span> {agent.voice}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-700">Greeting:</span> {agent.begin_sentence}
+                  </p>
                 </div>
-                <button
-                  onClick={() => handleEditPrompt(agent)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  {t.agents.editPrompt}
-                </button>
               </div>
+              <button
+                onClick={() => handleEditPrompt(agent)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-70disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Edit Prompt
+              </button>
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       {selectedAgent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedAgent(null)} />
-          <div className="relative bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+          onClick={() => setSelectedAgent(null)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">{t.agents.editPromptTitle}</h3>
-                <p className="text-sm text-gray-600 mt-1">{selectedAgent.agent_name}</p>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Prompt</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{selectedAgent.agent_name}</p>
               </div>
-              <button onClick={() => setSelectedAgent(null)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => {
+                  setSelectedAgent(null);
+                  setError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
                 <X size={24} />
               </button>
             </div>
+
             <div className="flex-1 overflow-y-auto p-6">
               <textarea
                 value={editingPrompt}
-                onChange={(e) => setEditingPrompt(e.target.value)}
-                placeholder={t.agents.promptPlaceholder}
-                className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                onChange={(e) => {
+                  setEditingPrompt(e.target.value);
+                  if (error) setError(null);
+                }}
+                placeholder="Enter prompt for your agent..."
+                className="w-full h-64 p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               />
+              
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
+                  <X size={20} className="text-red-600 dark:text-red-400 flex-shrink-0" />
+                  <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                </div>
+              )}
             </div>
-            <div className="flex gap-3 p-6 border-t border-gray-200 bg-gray-50">
-              <button onClick={() => setSelectedAgent(null)} className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 font-medium">
-                {t.agents.cancel}
+
+            <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <button 
+                onClick={() => {
+                  setSelectedAgent(null);
+                  setError(null);
+                }} 
+                className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition-colors"
+              >
+                Cancel
               </button>
               <button
                 onClick={handleSavePrompt}
-                disabled={updateMutation.isPending}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium"
+                disabled={saving}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-70disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors"
               >
-                {updateMutation.isPending ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 size={16} className="animate-spin" />
-                    {t.agents.saving}
-                  </span>
-                ) : (
-                  t.agents.save
-                )}
+                {saving ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

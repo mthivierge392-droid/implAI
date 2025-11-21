@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X, LayoutDashboard, Cpu, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { UI_CONFIG } from '@/lib/constants';
 
 export function MobileNav() {
   const [open, setOpen] = useState(false);
@@ -19,21 +18,12 @@ export function MobileNav() {
     { href: '/dashboard/call-history', label: 'Call History', icon: Phone },
   ];
 
-  // Close menu on route change
-  React.useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
   return (
     <div className="md:hidden fixed bottom-4 right-4 z-50">
-      {/* Add bottom padding to prevent obscuring content */}
-      <div className={`pb-16 ${open ? 'pointer-events-none' : ''}`} />
-      
       {/* Floating Action Button */}
       <button
         onClick={() => setOpen(!open)}
         className="w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
-        aria-label="Open mobile menu"
       >
         {open ? <X size={24} /> : <Menu size={24} />}
       </button>

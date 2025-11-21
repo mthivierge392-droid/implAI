@@ -1,93 +1,237 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { sanitizeHtml, sanitizePhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CallHistory } from '@/lib/supabase';
-import { Search, ChevronLeft, ChevronRight, Loader2, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2, X, PhoneIncoming } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { useTranslation } from '@/lib/language-provider';
-import { UI_CONFIG } from '@/lib/constants';
-import { useDebouncedCallback } from 'use-debounce';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { API_CONFIG } from '@/lib/constants';
 
-export default function CallHistoryPage() {
-  const [calls, setCalls] = useState<CallHistory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCall, setSelectedCall] = useState<CallHistory | null>(null);
-  const [page, setPage] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [searchPhone, setSearchPhone] = useState('');
-  const [clientId, setClientId] = useState<string | null>(null);
-  const { t } = useTranslation(); // ✅ USE TRANSLATION
+const ITEMS_PER_PAGE = 50;
+const MAX_SEARCH_LENGTH = 20;
 
-  // Use debounced search
-  const debouncedSearch = useDebouncedCallback((value: string) => {
-    setSearchPhone(value);
-    setPage(0);
-  }, UI_CONFIG.DEBOUNCE_DELAY);
+function useRealtimeMinutes() {
+  const [minutes, setMinutes] = useState({
+    included: 0,
+    used: 0,
+    remaining: 0,
+  });
 
   useEffect(() => {
-    const getClientId = async () => {
+    const channel = supabase.channel('minutes-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clients',
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          setMinutes({
+            included: newData.minutes_included,
+            used: newData.minutes_used,
+            remaining: Math.max(0, newData.minutes_included - newData.minutes_used),
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  return minutes;
+}
+
+export default function CallHistoryPage() {
+  const [selectedCall, setSelectedCall] = useState<CallHistory | null>(null);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
+  const [page, setPage] = useState(0);
+  const [realtimeEnabled, setRealtimeEnabled] = useState(true);
+  const queryClient = useQueryClient();
+  const minutes = useRealtimeMinutes();
+  
+  const isUnmounting = useRef(false);
+  const agentIdsRef = useRef<string[]>([]);
+  const channelRef = useRef<any>(null);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null); // ✅ NEW: Retry timer
+
+  const { data: clientId, isLoading: clientLoading } = useQuery({
+    queryKey: ['client-id'],
+    queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error('Not authenticated');
+
       const { data: client } = await supabase
         .from('clients')
         .select('user_id')
         .eq('user_id', user.id)
         .single();
-      if (client) setClientId(client.user_id);
-    };
-    getClientId();
-  }, []);
+      
+      if (!client) throw new Error('Client not found');
+      return client.user_id;
+    },
+    staleTime: API_CONFIG.STALE_TIME,
+  });
 
-  const fetchCalls = async (currentPage: number, search: string) => {
-    if (!clientId) return;
-    
-    setLoading(true);
-    try {
-      const { data: agentIds } = await supabase
+  const { data: agentIds } = useQuery({
+    queryKey: ['agent-ids', clientId],
+    queryFn: async () => {
+      const { data } = await supabase
         .from('agents')
         .select('retell_agent_id')
-        .eq('client_id', clientId);
+        .eq('client_id', clientId!);
+      return data?.map(a => a.retell_agent_id) || [];
+    },
+    enabled: !!clientId,
+  });
 
-      const agentIdList = agentIds?.map(a => a.retell_agent_id) || [];
+  useEffect(() => {
+    agentIdsRef.current = agentIds || [];
+  }, [agentIds]);
 
+  const { data: callsData, isLoading: callsLoading } = useQuery({
+    queryKey: ['calls', clientId, searchPhone, page],
+    queryFn: async () => {
       let query = supabase
         .from('call_history')
         .select('*', { count: 'exact' })
-        .in('retell_agent_id', agentIdList)
+        .in('retell_agent_id', agentIds || [])
         .order('created_at', { ascending: false })
-        .range(
-          currentPage * UI_CONFIG.ITEMS_PER_PAGE, 
-          (currentPage + 1) * UI_CONFIG.ITEMS_PER_PAGE - 1
-        );
+        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
 
-      if (search) {
-        query = query.ilike('phone_number', `%${search}%`);
+      if (searchPhone) {
+        query = query.ilike('phone_number', `%${searchPhone}%`);
       }
 
       const { data, count, error } = await query;
       if (error) throw error;
+      return { calls: data || [], totalCount: count || 0 };
+    },
+    enabled: !!agentIds && agentIds.length > 0,
+    staleTime: API_CONFIG.STALE_TIME,
+  });
 
-      setCalls(data || []);
-      setTotalCount(count || 0);
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError(t.errors.internalError);
-      showToast(t.errors.internalError, 'error');
-    } finally {
-      setLoading(false);
+  // ✅ FIXED: Real-time subscription with retry logic
+  useEffect(() => {
+    isUnmounting.current = false;
+
+    // Clean up any existing subscription first
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Clear any pending retry
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+    }
+
+    const setupRealtime = () => {
+      // If no agent IDs, wait and retry
+      if (!agentIdsRef.current.length) {
+        console.log('No agent IDs yet, will retry in 500ms');
+        retryTimeoutRef.current = setTimeout(setupRealtime, 500);
+        return;
+      }
+
+      channelRef.current = supabase
+        .channel('call-history-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'call_history',
+          },
+          (payload) => {
+            const newCall = payload.new as CallHistory;
+            console.log('New call received:', newCall);
+            
+            if (agentIdsRef.current.includes(newCall.retell_agent_id)) {
+              if (!isUnmounting.current) {
+                queryClient.setQueryData(
+                  ['calls', clientId, searchPhone, page],
+                  (old: any) => {
+                    if (!old) return { calls: [newCall], totalCount: 1 };
+                    return {
+                      calls: [newCall, ...old.calls].slice(0, ITEMS_PER_PAGE),
+                      totalCount: old.totalCount + 1,
+                    };
+                  }
+                );
+                showToast(`New call: ${newCall.phone_number}`, 'info');
+              }
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          console.log('Realtime status:', status);
+          
+          if (status === 'SUBSCRIBED') {
+            setRealtimeEnabled(true);
+          } 
+          else if ((status === 'CLOSED' || status === 'CHANNEL_ERROR') && !isUnmounting.current) {
+            setRealtimeEnabled(false);
+            console.error('Realtime connection lost, retrying in 1s');
+            
+            // ✅ NEW: Auto-retry on connection loss
+            retryTimeoutRef.current = setTimeout(() => {
+              if (!isUnmounting.current) {
+                setupRealtime();
+              }
+            }, 1000);
+          }
+        });
+    };
+
+    setupRealtime();
+
+    return () => {
+      isUnmounting.current = true;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [clientId, searchPhone, page, agentIds, queryClient]);
+
+  const totalPages = Math.ceil((callsData?.totalCount || 0) / ITEMS_PER_PAGE);
+
+  // Search functions (same as before)
+  const handleSearch = () => {
+    if (searchPhone.length > MAX_SEARCH_LENGTH) {
+      showToast(`Search too long (max ${MAX_SEARCH_LENGTH} characters)`, 'error');
+      return;
+    }
+    setPage(0);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
     }
   };
 
-  useEffect(() => {
-    fetchCalls(page, searchPhone);
-  }, [clientId, page, searchPhone]);
-
-  const totalPages = Math.ceil(totalCount / UI_CONFIG.ITEMS_PER_PAGE);
+  const handleInputChange = (value: string) => {
+    const sanitized = sanitizePhoneNumber(value);
+    if (sanitized.length > MAX_SEARCH_LENGTH) {
+      showToast(`Max ${MAX_SEARCH_LENGTH} characters`, 'info');
+    }
+    setSearchInput(sanitized.substring(0, MAX_SEARCH_LENGTH));
+  };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('fr-CA', {
+    return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
     });
   };
@@ -107,19 +251,19 @@ export default function CallHistoryPage() {
     } as const;
 
     const labels = {
-      completed: t.status.completed,
-      failed: t.status.failed,
-      no_answer: t.status.noAnswer,
-      in_progress: t.status.inProgress,
+      completed: 'Completed',
+      failed: 'Failed',
+      no_answer: 'No Answer',
+      in_progress: 'In Progress',
     } as const;
 
     const style = styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
-    const label = labels[status as keyof typeof labels] || status || t.status.unknown;
+    const label = labels[status as keyof typeof labels] || status || 'Unknown';
 
     return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${style}`}>{label}</span>;
   };
 
-  if (loading) {
+  if (clientLoading || callsLoading) {
     return (
       <div className="space-y-4">
         <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-64" />
@@ -135,7 +279,7 @@ export default function CallHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {[...Array(UI_CONFIG.ITEMS_PER_PAGE)].map((_, i) => (
+              {[...Array(10)].map((_, i) => (
                 <tr key={i} className="border-t">
                   {[...Array(5)].map((_, j) => (
                     <td key={j} className="px-6 py-4">
@@ -151,10 +295,10 @@ export default function CallHistoryPage() {
     );
   }
 
-  if (error) {
+  if (!clientId) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800">{error}</p>
+        <p className="text-red-800">Error: Client not authenticated</p>
       </div>
     );
   }
@@ -163,26 +307,35 @@ export default function CallHistoryPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">{t.callHistory.title}</h2>
-          <p className="text-gray-600 mt-1">{t.callHistory.subtitle}</p>
+          <h2 className="text-3xl font-bold text-gray-800">Call History</h2>
+          <p className="text-gray-600 mt-1">Call history for your agents</p>
         </div>
         
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder={t.callHistory.searchPlaceholder}
-            defaultValue={searchPhone}
-            onChange={(e) => debouncedSearch(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
+        <div className="flex gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search phone number..."
+              value={searchInput}
+              onChange={(e) => handleInputChange(e.target.value)}
+              onKeyPress={handleKeyPress}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+          >
+            Search
+          </button>
         </div>
       </div>
 
-      {calls.length === 0 ? (
+      {callsData?.calls.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-500 text-lg">{t.callHistory.noCalls}</p>
-          <p className="text-gray-400 text-sm mt-2">{t.callHistory.callsAppearAutomatically}</p>
+          <p className="text-gray-500 text-lg">No calls recorded.</p>
+          <p className="text-gray-400 text-sm mt-2">Calls will appear here automatically.</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -190,21 +343,21 @@ export default function CallHistoryPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.callHistory.dateTime}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.callHistory.number}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.callHistory.status}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.callHistory.duration}</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.callHistory.actions}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {calls.map((call) => (
+                {callsData?.calls.map((call) => (
                   <tr key={call.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(call.created_at)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {call.phone_number}
+                      {sanitizePhoneNumber(call.phone_number)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(call.call_status)}
@@ -217,7 +370,7 @@ export default function CallHistoryPage() {
                         onClick={() => setSelectedCall(call)}
                         className="text-blue-600 hover:text-blue-800 font-semibold"
                       >
-                        {t.callHistory.seeTranscript}
+                        See transcript
                       </button>
                     </td>
                   </tr>
@@ -228,7 +381,7 @@ export default function CallHistoryPage() {
 
           <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              {t.callHistory.page} {page + 1} {t.callHistory.of} {totalPages || 1}
+              Page {page + 1} of {totalPages || 1}
             </div>
             <div className="flex gap-2">
               <button
@@ -251,34 +404,60 @@ export default function CallHistoryPage() {
       )}
 
       {selectedCall && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-800">{t.callHistory.transcript}</h3>
-                <button
-                  onClick={() => setSelectedCall(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={24} />
-                </button>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+          onClick={() => setSelectedCall(null)}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                  Call Details
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {selectedCall.phone_number} - {formatDate(selectedCall.created_at)}
+                </p>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {selectedCall.phone_number} - {formatDate(selectedCall.created_at)}
-              </p>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[50vh]">
-              <h4 className="font-semibold text-gray-700 mb-2">{t.callHistory.transcript}:</h4>
-              <p className="text-gray-600 whitespace-pre-wrap">
-                {selectedCall.transcript || t.callHistory.noTranscriptAvailable}
-              </p>
-            </div>
-            <div className="p-6 border-t border-gray-200">
               <button
                 onClick={() => setSelectedCall(null)}
-                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                {t.callHistory.close}
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Transcript Content */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="mb-4">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(selectedCall.call_status).props.className}`}>
+                  {selectedCall.call_status || 'Unknown'}
+                </span>
+                <p className="text-sm text-gray-500 mt-2">
+                  Duration: {formatDuration(selectedCall.call_duration_seconds)}
+                </p>
+              </div>
+              
+              <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Transcript:</h4>
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {selectedCall.transcript 
+                    ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCall.transcript) }} />
+                    : 'No transcript available for this call.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <button
+                onClick={() => setSelectedCall(null)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

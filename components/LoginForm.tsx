@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { useTranslation } from '@/lib/language-provider';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -17,15 +16,14 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-  const { t } = useTranslation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
     const newErrors: typeof errors = {};
-    if (!validateEmail(email)) newErrors.email = t.login.invalidEmail;
-    if (!validatePassword(password)) newErrors.password = t.login.passwordRequired;
+    if (!validateEmail(email)) newErrors.email = 'Invalid email';
+    if (!validatePassword(password)) newErrors.password = 'Password must be at least 6 characters';
     
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -35,10 +33,10 @@ export default function LoginForm() {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       router.push('/dashboard');
-      showToast(t.login.loginSuccess, 'success');
+      showToast('Login successful', 'success');
     } catch (error: any) {
-      setError(error.message || t.login.loginError);
-      showToast(t.login.loginError, 'error');
+      setError(error.message || 'Login error');
+      showToast('Login error', 'error');
     } finally {
       setLoading(false);
     }
@@ -51,8 +49,8 @@ export default function LoginForm() {
           <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-3">
             <span className="text-white font-bold text-lg">AI</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">{t.login.title}</h2>
-          <p className="text-gray-600 text-sm mt-2">{t.login.subtitle}</p>
+          <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
+          <p className="text-gray-600 text-sm mt-2">Access your dashboard</p>
         </div>
 
         {error && (
@@ -65,14 +63,14 @@ export default function LoginForm() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
-              {t.login.email}
+              Email
             </label>
             <div className="relative">
               <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 id="email"
                 type="email"
-                placeholder={t.login.emailPlaceholder}
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -88,14 +86,14 @@ export default function LoginForm() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
-              {t.login.password}
+              Password
             </label>
             <div className="relative">
               <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 id="password"
                 type="password"
-                placeholder={t.login.passwordPlaceholder}
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -115,7 +113,7 @@ export default function LoginForm() {
             className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg flex items-center justify-center gap-2 mt-6"
           >
             <LogIn size={18} />
-            {loading ? t.login.loggingIn : t.login.loginButton}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
       </div>

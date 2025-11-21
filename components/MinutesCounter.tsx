@@ -1,8 +1,8 @@
-// components/MinutesCounter.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { showToast } from '@/components/toast';
 
 export default function MinutesCounter() {
   const [minutes, setMinutes] = useState({
@@ -11,12 +11,19 @@ export default function MinutesCounter() {
     remaining: 0,
   });
   const [loading, setLoading] = useState(true);
+  const isMounted = useRef(false); // ✅ Track mount state
 
   useEffect(() => {
-    const fetchMinutes = async () => {
+    isMounted.current = true; // ✅ Set true when mounted
+    let channel: any;
+    
+    const setupSubscription = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          if (isMounted.current) setLoading(false); // ✅ Check before state update
+          return;
+        }
 
         const { data: clientData, error } = await supabase
           .from('clients')
@@ -24,28 +31,67 @@ export default function MinutesCounter() {
           .eq('user_id', user.id)
           .single();
 
-        if (error) throw error;
+        if (error || !clientData) {
+          if (isMounted.current) setLoading(false); // ✅ Check before state update
+          return;
+        }
 
-        if (clientData) {
-          const remaining = clientData.minutes_included - clientData.minutes_used;
+        const remaining = Math.max(0, clientData.minutes_included - clientData.minutes_used);
+        if (isMounted.current) { // ✅ Check before state update
           setMinutes({
             included: clientData.minutes_included,
             used: clientData.minutes_used,
-            remaining: Math.max(0, remaining),
+            remaining,
           });
         }
+
+        channel = supabase
+          .channel('minutes-counter')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'clients',
+            },
+            (payload) => {
+              if (!isMounted.current) return; // ✅ Ignore updates if unmounted
+              
+              const newData = payload.new as any;
+              if (newData.user_id === user.id) {
+                const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
+                setMinutes({
+                  included: newData.minutes_included,
+                  used: newData.minutes_used,
+                  remaining,
+                });
+                showToast(`Minutes used: ${newData.minutes_used}/${newData.minutes_included}`, 'info');
+              }
+            }
+          )
+          .subscribe();
+
+        if (isMounted.current) setLoading(false); // ✅ Check before state update
+
       } catch (error) {
-        console.error('Erreur chargement minutes:', error);
-      } finally {
-        setLoading(false);
+        console.error('Minutes counter error:', error);
+        if (isMounted.current) setLoading(false); // ✅ Check before state update
       }
     };
 
-    fetchMinutes();
+    setupSubscription();
+
+    return () => {
+      isMounted.current = false; // ✅ Mark as unmounted
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   if (loading) return null;
-
+  
+  // ... rest of your JSX is unchanged
   const percentage = minutes.included > 0 
     ? Math.max(1, Math.round((minutes.used / minutes.included) * 100))
     : 0;

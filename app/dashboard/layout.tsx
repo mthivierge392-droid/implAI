@@ -1,4 +1,3 @@
-// app/dashboard/layout.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -9,11 +8,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import MinutesCounter from '@/components/MinutesCounter';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { LanguageSwitcher } from '@/components/language-switcher'; // ✅ NEW IMPORT
 import { LayoutDashboard, Cpu, Phone, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { ErrorBoundary } from '@/components/error-boundary';
-import { useTranslation } from '@/lib/language-provider'; // ✅ NEW IMPORT
 
 export default function DashboardLayout({
   children,
@@ -24,7 +20,6 @@ export default function DashboardLayout({
   const { user, setUser, loading, setLoading } = useAuthStore();
   const pathname = usePathname();
   const { resolvedTheme } = useTheme();
-  const { t } = useTranslation(); // ✅ USE TRANSLATION
 
   useEffect(() => {
     const checkUser = async () => {
@@ -59,15 +54,15 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
-        <div className="text-gray-600 dark:text-gray-400">{t.dashboard.loading}</div>
+        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
       </div>
     );
   }
 
   const navItems = [
-    { href: '/dashboard', label: t.dashboard.nav.overview, icon: LayoutDashboard },
-    { href: '/dashboard/agents', label: t.dashboard.nav.agents, icon: Cpu },
-    { href: '/dashboard/call-history', label: t.dashboard.nav.callHistory, icon: Phone },
+    { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+    { href: '/dashboard/agents', label: 'Agents', icon: Cpu },
+    { href: '/dashboard/call-history', label: 'Call History', icon: Phone },
   ];
 
   return (
@@ -83,14 +78,14 @@ export default function DashboardLayout({
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t.dashboard.title}</h1>
+            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Monitoring</h1>
           </div>
 
-          <div className="flex items-center gap-4"> {/* ✅ ADDED LANGUAGE SWITCHER */}
+          <div className="flex items-center gap-6">
             <MinutesCounter />
-            <ThemeToggle />
-            <LanguageSwitcher /> {/* ✅ HERE */}
             
+            <ThemeToggle />
+
             <div className="flex items-center gap-4 pl-6 border-l border-gray-200 dark:border-gray-700">
               <span className="text-sm text-gray-600 dark:text-gray-300">{user?.email}</span>
               <button
@@ -98,7 +93,7 @@ export default function DashboardLayout({
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <LogOut size={16} />
-                <span>{t.dashboard.logout}</span>
+                <span>Logout</span>
               </button>
             </div>
           </div>
@@ -135,13 +130,11 @@ export default function DashboardLayout({
           </nav>
         </aside>
 
-        {/* Main Content - Wrapped in ErrorBoundary */}
+        {/* Main Content */}
         <main className={`flex-1 p-8 ${
           resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'
         }`}>
-          <ErrorBoundary>
-            {children}
-          </ErrorBoundary>
+          {children}
         </main>
       </div>
     </div>
