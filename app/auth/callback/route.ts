@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase-server'; // ✅ FIXED: Use -server 
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
-  const supabase = createClient(); // Server-side client with cookie support
+  const supabase = await createClient(); // Server-side client with cookie support
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
