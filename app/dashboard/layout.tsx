@@ -1,3 +1,4 @@
+// app/dashboard/layout.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -8,6 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import MinutesCounter from '@/components/MinutesCounter';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { MobileNav } from '@/components/mobile-nav';
 import { LayoutDashboard, Cpu, Phone, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -73,7 +75,7 @@ export default function DashboardLayout({
           ? 'bg-gray-800 border-gray-700' 
           : 'bg-white border-gray-200'
       }`}>
-        <div className="flex items-center justify-between h-16 px-6">
+        <div className="flex items-center justify-between h-16 px-4 md:px-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AI</span>
@@ -81,19 +83,19 @@ export default function DashboardLayout({
             <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Monitoring</h1>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
             <MinutesCounter />
             
             <ThemeToggle />
 
-            <div className="flex items-center gap-4 pl-6 border-l border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-gray-600 dark:text-gray-300">{user?.email}</span>
+            <div className="flex items-center gap-2 md:gap-4 pl-2 md:pl-6 border-l border-gray-200 dark:border-gray-700">
+              <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">{user?.email}</span>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-2 md:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <LogOut size={16} />
-                <span>Logout</span>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -101,12 +103,12 @@ export default function DashboardLayout({
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
+        {/* Desktop Sidebar */}
         <aside className={`w-64 border-r ${
           resolvedTheme === 'dark' 
             ? 'bg-gray-800 border-gray-700' 
             : 'bg-white border-gray-200'
-        } min-h-[calc(100vh-64px)]`}>
+        } min-h-[calc(100vh-64px)] hidden md:block`}>
           <nav className="p-4 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -131,12 +133,15 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 p-8 ${
+        <main className={`flex-1 p-4 md:p-8 ${
           resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'
         }`}>
           {children}
         </main>
       </div>
+
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   );
 }
