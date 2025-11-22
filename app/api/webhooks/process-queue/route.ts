@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/supabase-server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -8,24 +7,26 @@ const MAX_RETRIES = 3;
 export async function POST(request: Request) {
   console.log('🚀 === WEBHOOK PROCESSING STARTED ===');
   
-  const supabase = await createClient();
-  
   // Verify cron secret
   const authHeader = request.headers.get('authorization');
   console.log('🔑 Auth header present:', !!authHeader);
   
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     console.log('❌ Unauthorized: Bearer token mismatch');
-    console.log('Expected:', `Bearer ${process.env.CRON_SECRET}`);
-    console.log('Received:', authHeader);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   
   console.log('✅ Authorization successful');
 
+  // Use service role client (bypasses RLS)
+  const serviceSupabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   try {
     console.log('📋 Fetching pending jobs...');
-    const { data: jobs, error: jobsError } = await supabase
+    const { data: jobs, error: jobsError } = await serviceSupabase
       .from('webhook_jobs')
       .select('*')
       .eq('status', 'pending')
@@ -46,10 +47,6 @@ export async function POST(request: Request) {
     }
 
     const results = [];
-    const serviceSupabase = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     for (const job of jobs) {
       console.log(`🔄 Processing job ${job.id}...`);
@@ -58,7 +55,7 @@ export async function POST(request: Request) {
 
       try {
         // Mark as processing
-        const { error: updateError } = await supabase
+        const { error: updateError } = await serviceSupabase
           .from('webhook_jobs')
           .update({ status: 'processing' })
           .eq('id', job.id);
@@ -99,7 +96,7 @@ export async function POST(request: Request) {
           console.log('✅ Retell API success:', responseData);
 
           // Mark as completed
-          await supabase
+          await serviceSupabase
             .from('webhook_jobs')
             .update({ 
               status: 'completed',
@@ -116,7 +113,7 @@ export async function POST(request: Request) {
         const newRetryCount = job.retry_count + 1;
         const status = newRetryCount >= MAX_RETRIES ? 'failed' : 'pending';
         
-        await supabase
+        await serviceSupabase
           .from('webhook_jobs')
           .update({
             status,
