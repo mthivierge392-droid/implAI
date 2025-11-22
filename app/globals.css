@@ -1,7 +1,7 @@
 /* app/globals.css */
 @import 'tailwindcss';
 
-/* CSS Variables for theming */
+/* SaaS-Grade CSS Variables */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 84% 4.9%;
@@ -22,7 +22,7 @@
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 .dark {
@@ -49,10 +49,21 @@
 
 @layer base {
   * {
-    @apply border-gray-200 dark:border-gray-700;
+    @apply border-border;
   }
   body {
-    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white;
-    font-family: Arial, Helvetica, sans-serif;
+    @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
   }
 }
