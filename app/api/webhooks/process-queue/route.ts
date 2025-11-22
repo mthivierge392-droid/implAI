@@ -8,7 +8,7 @@ const MAX_RETRIES = 3;
 export async function POST(request: Request) {
   console.log('🚀 === WEBHOOK PROCESSING STARTED ===');
   
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // Verify cron secret
   const authHeader = request.headers.get('authorization');

@@ -9,7 +9,7 @@ const updateLLMSchema = z.object({
 });
 
 export async function PATCH(request: NextRequest) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   try {
     const body = await request.json();
