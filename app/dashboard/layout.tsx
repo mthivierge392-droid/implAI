@@ -75,27 +75,31 @@ export default function DashboardLayout({
           ? 'bg-gray-800 border-gray-700' 
           : 'bg-white border-gray-200'
       }`}>
-        <div className="flex items-center justify-between h-16 px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+        <div className="flex items-center justify-between h-16 px-3 md:px-6 gap-2">
+          <div className="flex items-center gap-3 min-w-0 flex-shrink">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white font-bold text-sm">AI</span>
             </div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Monitoring</h1>
+            <h1 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate">
+              Monitoring
+            </h1>
           </div>
 
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
             <MinutesCounter />
             
             <ThemeToggle />
 
-            <div className="flex items-center gap-2 md:gap-4 pl-2 md:pl-6 border-l border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:inline">{user?.email}</span>
+            <div className="flex items-center gap-1 md:gap-2 pl-1 md:pl-4 border-l border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-300 truncate max-w-[150px]">
+                {user?.email}
+              </span>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-2 md:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <LogOut size={16} />
-                <span className="hidden sm:inline">Logout</span>
+                <span className="hidden md:inline">Logout</span>
               </button>
             </div>
           </div>

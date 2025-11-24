@@ -59,7 +59,7 @@ export default function CallHistoryPage() {
   const isUnmounting = useRef(false);
   const agentIdsRef = useRef<string[]>([]);
   const channelRef = useRef<any>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null); // ✅ NEW: Retry timer
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: clientId, isLoading: clientLoading } = useQuery({
     queryKey: ['client-id'],
@@ -117,7 +117,7 @@ export default function CallHistoryPage() {
     staleTime: API_CONFIG.STALE_TIME,
   });
 
-  // ✅ FIXED: Real-time subscription with retry logic
+  // Real-time subscription with retry logic
   useEffect(() => {
     isUnmounting.current = false;
 
@@ -181,7 +181,7 @@ export default function CallHistoryPage() {
             setRealtimeEnabled(false);
             console.error('Realtime connection lost, retrying in 1s');
             
-            // ✅ NEW: Auto-retry on connection loss
+            // Auto-retry on connection loss
             retryTimeoutRef.current = setTimeout(() => {
               if (!isUnmounting.current) {
                 setupRealtime();
@@ -207,7 +207,7 @@ export default function CallHistoryPage() {
 
   const totalPages = Math.ceil((callsData?.totalCount || 0) / ITEMS_PER_PAGE);
 
-  // Search functions (same as before)
+  // Search functions
   const handleSearch = () => {
     if (searchPhone.length > MAX_SEARCH_LENGTH) {
       showToast(`Search too long (max ${MAX_SEARCH_LENGTH} characters)`, 'error');
@@ -260,7 +260,7 @@ export default function CallHistoryPage() {
     const style = styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
     const label = labels[status as keyof typeof labels] || status || 'Unknown';
 
-    return <span className={`px-3 py-1 rounded-full text-xs font-semibold ${style}`}>{label}</span>;
+    return <span className={`px-2 md:px-3 py-1 rounded-full text-xs font-semibold ${style}`}>{label}</span>;
   };
 
   if (clientLoading || callsLoading) {
@@ -304,15 +304,16 @@ export default function CallHistoryPage() {
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="min-w-0">
+      <div className="mb-6 space-y-4">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Call History</h2>
-          <p className="text-gray-600 mt-1">Call history for your agents</p>
+          <h2 className="text-xl md:text-3xl font-bold text-gray-800 dark:text-white">Call History</h2>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Call history for your agents</p>
         </div>
         
-        <div className="flex gap-2">
-          <div className="relative">
+        {/* Search Bar - Stacks on mobile, side-by-side on md+ */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
@@ -320,12 +321,12 @@ export default function CallHistoryPage() {
               value={searchInput}
               onChange={(e) => handleInputChange(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <button
             onClick={handleSearch}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
           >
             Search
           </button>
@@ -333,89 +334,94 @@ export default function CallHistoryPage() {
       </div>
 
       {callsData?.calls.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-500 text-lg">No calls recorded.</p>
-          <p className="text-gray-400 text-sm mt-2">Calls will appear here automatically.</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400 text-lg">No calls recorded.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Calls will appear here automatically.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date/Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {callsData?.calls.map((call) => (
-                  <tr key={call.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(call.created_at)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {sanitizePhoneNumber(call.phone_number)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(call.call_status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDuration(call.call_duration_seconds)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button
-                        onClick={() => setSelectedCall(call)}
-                        className="text-blue-600 hover:text-blue-800 font-semibold"
-                      >
-                        See transcript
-                      </button>
-                    </td>
+        <>
+          {/* Table Container - Allows horizontal scrolling without page overflow */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-[640px] w-full">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date/Time</th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Number</th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Duration</th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {callsData?.calls.map((call) => (
+                    <tr key={call.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatDate(call.created_at)}
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        {sanitizePhoneNumber(call.phone_number)}
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                        {getStatusBadge(call.call_status)}
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatDuration(call.call_duration_seconds)}
+                      </td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm">
+                        <button
+                          onClick={() => setSelectedCall(call)}
+                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold"
+                        >
+                          See transcript
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+          {/* Pagination */}
+          <div className="mt-4 px-4 md:px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 rounded-b-lg">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               Page {page + 1} of {totalPages || 1}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 md:gap-2">
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="px-3 py-1 rounded-lg border border-gray-300 disabled:opacity-50"
+                className="px-2 md:px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                className="px-3 py-1 rounded-lg border border-gray-300 disabled:opacity-50"
+                className="px-2 md:px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <ChevronRight size={18} />
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
+      {/* Transcript Modal */}
       {selectedCall && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-gray-900/60 backdrop-blur-sm"
           onClick={() => setSelectedCall(null)}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col"
+            className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-2xl max-w-full md:max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col mx-2 md:mx-0"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div>
-                <h3 className="text-xl font-bold text-gray-800 dark:text-white">
+                <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
                   Call Details
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -426,24 +432,24 @@ export default function CallHistoryPage() {
                 onClick={() => setSelectedCall(null)}
                 className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Transcript Content */}
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <div className="mb-4">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(selectedCall.call_status).props.className}`}>
-                  {selectedCall.call_status || 'Unknown'}
-                </span>
-                <p className="text-sm text-gray-500 mt-2">
-                  Duration: {formatDuration(selectedCall.call_duration_seconds)}
-                </p>
+                <div className="flex items-center gap-2 mb-2">
+                  {getStatusBadge(selectedCall.call_status)}
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    Duration: {formatDuration(selectedCall.call_duration_seconds)}
+                  </span>
+                </div>
               </div>
               
               <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Transcript:</h4>
               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm md:text-base">
                   {selectedCall.transcript 
                     ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCall.transcript) }} />
                     : 'No transcript available for this call.'}
@@ -452,7 +458,7 @@ export default function CallHistoryPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
               <button
                 onClick={() => setSelectedCall(null)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
