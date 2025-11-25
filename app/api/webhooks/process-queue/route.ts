@@ -1,4 +1,3 @@
-// app/api/webhooks/process-queue/route.ts
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -35,6 +34,7 @@ export async function POST(request: Request) {
       .limit(10);
 
     console.log('📊 Jobs found:', jobs?.length || 0);
+    console.log('📋 Jobs data:', JSON.stringify(jobs, null, 2));
     
     if (jobsError) {
       console.error('❌ Jobs fetch error:', jobsError);
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     }
 
     if (!jobs || jobs.length === 0) {
-      console.log('✅ No pending jobs');
+      console.log('✅ No pending jobs to process');
       return NextResponse.json({ processed: 0, message: 'No jobs' });
     }
 
@@ -50,7 +50,9 @@ export async function POST(request: Request) {
 
     for (const job of jobs) {
       console.log(`🔄 Processing job ${job.id}...`);
-      
+      console.log(`📞 Phone: ${job.payload.phone_number}`);
+      console.log(`🤖 Fallback: ${job.payload.fallback_agent_id}`);
+
       try {
         // Mark as processing
         const { error: updateError } = await serviceSupabase
@@ -64,10 +66,7 @@ export async function POST(request: Request) {
         if (job.job_type === 'reassign_number') {
           const { phone_number, fallback_agent_id } = job.payload;
           
-          console.log(`📞 Number: ${phone_number}`);
-          console.log(`🤖 Fallback: ${fallback_agent_id}`);
-
-          // Call Retell
+          console.log(`🚀 Calling Retell API for ${phone_number}...`);
           const response = await fetch(
             `${RETELL_API_URL}/update-phone-number/${encodeURIComponent(phone_number)}`,
             {
@@ -84,12 +83,17 @@ export async function POST(request: Request) {
             }
           );
 
+          console.log(`📡 Retell API response status: ${response.status}`);
           const responseText = await response.text();
-          console.log(`📡 Retell status: ${response.status}`, responseText);
+          console.log(`📡 Retell API response body: ${responseText}`);
 
           if (!response.ok) {
+            console.error('❌ Retell API error:', responseText);
             throw new Error(`Retell API error: ${response.status} ${responseText}`);
           }
+
+          const responseData = JSON.parse(responseText);
+          console.log('✅ Retell API success:', responseData);
 
           // Mark as completed
           await serviceSupabase
@@ -122,14 +126,11 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log('🎉 Complete:', results);
+    console.log('🎉 Processing complete:', results);
     return NextResponse.json({ processed: results.length, results });
 
   } catch (error) {
-    console.error('💥 Fatal error:', error);
-    return NextResponse.json({ 
-      error: 'Processing failed',
-      details: error instanceof Error ? error.message : String(error) 
-    }, { status: 500 });
+    console.error('💥 Webhook processing error:', error);
+    return NextResponse.json({ error: 'Processing failed' }, { status: 500 });
   }
 }
