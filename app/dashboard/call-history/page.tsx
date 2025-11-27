@@ -1,13 +1,18 @@
+// app/dashboard/call-history/page.tsx
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { sanitizeHtml, sanitizePhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CallHistory } from '@/lib/supabase';
-import { Search, ChevronLeft, ChevronRight, Loader2, X, PhoneIncoming } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X, PhoneIncoming, Filter } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_SEARCH_LENGTH = 20;
@@ -117,26 +122,22 @@ export default function CallHistoryPage() {
     staleTime: API_CONFIG.STALE_TIME,
   });
 
-  // Real-time subscription with retry logic
+  // Real-time subscription
   useEffect(() => {
     isUnmounting.current = false;
 
-    // Clean up any existing subscription first
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
     }
 
-    // Clear any pending retry
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
       retryTimeoutRef.current = null;
     }
 
     const setupRealtime = () => {
-      // If no agent IDs, wait and retry
       if (!agentIdsRef.current.length) {
-        console.log('No agent IDs yet, will retry in 500ms');
         retryTimeoutRef.current = setTimeout(setupRealtime, 500);
         return;
       }
@@ -152,7 +153,6 @@ export default function CallHistoryPage() {
           },
           (payload) => {
             const newCall = payload.new as CallHistory;
-            console.log('New call received:', newCall);
             
             if (agentIdsRef.current.includes(newCall.retell_agent_id)) {
               if (!isUnmounting.current) {
@@ -172,20 +172,11 @@ export default function CallHistoryPage() {
           }
         )
         .subscribe((status: string) => {
-          console.log('Realtime status:', status);
+          setRealtimeEnabled(status === 'SUBSCRIBED');
           
-          if (status === 'SUBSCRIBED') {
-            setRealtimeEnabled(true);
-          } 
-          else if ((status === 'CLOSED' || status === 'CHANNEL_ERROR') && !isUnmounting.current) {
-            setRealtimeEnabled(false);
-            console.error('Realtime connection lost, retrying in 1s');
-            
-            // Auto-retry on connection loss
+          if ((status === 'CLOSED' || status === 'CHANNEL_ERROR') && !isUnmounting.current) {
             retryTimeoutRef.current = setTimeout(() => {
-              if (!isUnmounting.current) {
-                setupRealtime();
-              }
+              if (!isUnmounting.current) setupRealtime();
             }, 1000);
           }
         });
@@ -195,19 +186,13 @@ export default function CallHistoryPage() {
 
     return () => {
       isUnmounting.current = true;
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
   }, [clientId, searchPhone, page, agentIds, queryClient]);
 
   const totalPages = Math.ceil((callsData?.totalCount || 0) / ITEMS_PER_PAGE);
 
-  // Search functions
   const handleSearch = () => {
     if (searchPhone.length > MAX_SEARCH_LENGTH) {
       showToast(`Search too long (max ${MAX_SEARCH_LENGTH} characters)`, 'error');
@@ -243,228 +228,217 @@ export default function CallHistoryPage() {
   };
 
   const getStatusBadge = (status: string | null) => {
-    const styles = {
-      completed: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      no_answer: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
+    const variant = {
+      completed: 'success',
+      failed: 'destructive',
+      no_answer: 'warning',
+      in_progress: 'default',
     } as const;
 
-    const labels = {
+    const label = {
       completed: 'Completed',
       failed: 'Failed',
       no_answer: 'No Answer',
       in_progress: 'In Progress',
     } as const;
 
-    const style = styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800';
-    const label = labels[status as keyof typeof labels] || status || 'Unknown';
-
-    return <span className={`px-2 md:px-3 py-1 rounded-full text-xs font-semibold ${style}`}>{label}</span>;
+    return (
+      <Badge variant={variant[status as keyof typeof variant] || 'outline'}>
+        {label[status as keyof typeof label] || status || 'Unknown'}
+      </Badge>
+    );
   };
 
   if (clientLoading || callsLoading) {
     return (
-      <div className="space-y-4">
-        <div className="h-10 bg-gray-200 rounded-lg animate-pulse w-64" />
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                {[...Array(5)].map((_, i) => (
-                  <th key={i} className="px-6 py-3">
-                    <div className="h-4 bg-gray-200 rounded animate-pulse w-20" />
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {[...Array(10)].map((_, i) => (
-                <tr key={i} className="border-t">
-                  {[...Array(5)].map((_, j) => (
-                    <td key={j} className="px-6 py-4">
-                      <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                    </td>
-                  ))}
-                </tr>
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-4 w-32" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!clientId) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-        <p className="text-red-800">Error: Client not authenticated</p>
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
+        <p className="text-destructive">Error: Client not authenticated</p>
       </div>
     );
   }
 
   return (
-    <div className="min-w-0">
-      <div className="mb-6 space-y-4">
-        <div>
-          <h2 className="text-xl md:text-3xl font-bold text-gray-800 dark:text-white">Call History</h2>
-          <p className="text-gray-600 mt-1 text-sm md:text-base">Call history for your agents</p>
-        </div>
-        
-        {/* Search Bar - Stacks on mobile, side-by-side on md+ */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Search phone number..."
-              value={searchInput}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <button
-            onClick={handleSearch}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-          >
-            Search
-          </button>
-        </div>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">Call History</h1>
+        <p className="text-muted-foreground">Monitor your AI agents' calls in real-time</p>
       </div>
 
-      {callsData?.calls.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <p className="text-gray-500 dark:text-gray-400 text-lg">No calls recorded.</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Calls will appear here automatically.</p>
-        </div>
-      ) : (
-        <>
-          {/* Table Container - Allows horizontal scrolling without page overflow */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search phone number..."
+                value={searchInput}
+                onChange={(e) => handleInputChange(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring focus:border-ring"
+              />
+            </div>
+            <Button onClick={handleSearch} className="gap-2">
+              <Filter className="w-4 h-4" />
+              Search
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {callsData?.calls.length === 0 ? (
+            <div className="text-center py-8">
+              <PhoneIncoming className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-foreground font-medium">No calls recorded</p>
+              <p className="text-muted-foreground text-sm mt-1">Calls will appear here automatically</p>
+            </div>
+          ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-[640px] w-full">
-                <thead className="bg-gray-50 dark:bg-gray-800">
-                  <tr>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date/Time</th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Number</th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Duration</th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date/Time</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Number</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Duration</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody>
                   {callsData?.calls.map((call) => (
-                    <tr key={call.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                    <tr 
+                      key={call.id} 
+                      className="border-b border-border hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
                         {formatDate(call.created_at)}
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
                         {sanitizePhoneNumber(call.phone_number)}
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         {getStatusBadge(call.call_status)}
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
                         {formatDuration(call.call_duration_seconds)}
                       </td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-sm">
-                        <button
+                      <td className="py-3 px-4 text-sm">
+                        <Button 
+                          variant="link" 
+                          size="sm"
                           onClick={() => setSelectedCall(call)}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold"
+                          className="p-0 h-auto font-medium"
                         >
-                          See transcript
-                        </button>
+                          View transcript
+                        </Button>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          )}
 
           {/* Pagination */}
-          <div className="mt-4 px-4 md:px-6 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 rounded-b-lg">
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Page {page + 1} of {totalPages || 1}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground">
+                Page {page + 1} of {totalPages || 1}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-1 md:gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-2 md:px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="px-2 md:px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Transcript Modal */}
       {selectedCall && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 md:p-4 bg-gray-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
           onClick={() => setSelectedCall(null)}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl shadow-2xl max-w-full md:max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col mx-2 md:mx-0"
+            className="bg-card rounded-xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-border"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex items-center justify-between p-6 border-b border-border">
               <div>
-                <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
-                  Call Details
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {selectedCall.phone_number} - {formatDate(selectedCall.created_at)}
+                <h3 className="text-xl font-semibold text-card-foreground">Call Details</h3>
+                <p className="text-sm text-muted-foreground">
+                  {sanitizePhoneNumber(selectedCall.phone_number)} • {formatDate(selectedCall.created_at)}
                 </p>
               </div>
-              <button
+              <Button 
+                variant="ghost" 
+                size="icon"
                 onClick={() => setSelectedCall(null)}
-                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <X size={20} />
-              </button>
+                <X className="w-4 h-4" />
+              </Button>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  {getStatusBadge(selectedCall.call_status)}
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Duration: {formatDuration(selectedCall.call_duration_seconds)}
-                  </span>
-                </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center gap-4">
+                {getStatusBadge(selectedCall.call_status)}
+                <span className="text-sm text-muted-foreground">
+                  Duration: {formatDuration(selectedCall.call_duration_seconds)}
+                </span>
               </div>
               
-              <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">Transcript:</h4>
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed text-sm md:text-base">
-                  {selectedCall.transcript 
-                    ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCall.transcript) }} />
-                    : 'No transcript available for this call.'}
-                </p>
+              <div>
+                <h4 className="font-semibold text-foreground mb-3">Transcript</h4>
+                <div className="bg-muted rounded-lg p-4">
+                  <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+                    {selectedCall.transcript 
+                      ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCall.transcript) }} />
+                      : 'No transcript available for this call.'}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
-              <button
-                onClick={() => setSelectedCall(null)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-              >
+            <div className="p-6 border-t border-border bg-muted/50">
+              <Button onClick={() => setSelectedCall(null)} className="w-full">
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>

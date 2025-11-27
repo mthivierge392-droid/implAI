@@ -1,17 +1,22 @@
-// app/dashboard/layout.tsx
+// app/dashboard/layout.tsx (SIMPLIFIED VERSION - NO DROPDOWN)
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import MinutesCounter from '@/components/MinutesCounter';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { MobileNav } from '@/components/mobile-nav';
-import { LayoutDashboard, Cpu, Phone, LogOut } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { 
+  LayoutDashboard, 
+  Cpu, 
+  Phone, 
+  LogOut,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export default function DashboardLayout({
   children,
@@ -21,7 +26,6 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, setUser, loading, setLoading } = useAuthStore();
   const pathname = usePathname();
-  const { resolvedTheme } = useTheme();
 
   useEffect(() => {
     const checkUser = async () => {
@@ -55,8 +59,11 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <span>Loading dashboard...</span>
+        </div>
       </div>
     );
   }
@@ -68,51 +75,40 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className={`min-h-screen ${resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className={`sticky top-0 z-40 border-b ${
-        resolvedTheme === 'dark' 
-          ? 'bg-gray-800 border-gray-700' 
-          : 'bg-white border-gray-200'
-      }`}>
-        <div className="flex items-center justify-between h-16 px-3 md:px-6 gap-2">
-          <div className="flex items-center gap-3 min-w-0 flex-shrink">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm">AI</span>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+        <div className="flex items-center justify-between h-16 px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-sm">AI</span>
             </div>
-            <h1 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate">
-              Monitoring
-            </h1>
+            <h1 className="text-lg font-semibold text-foreground">Monitoring</h1>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 md:gap-4">
             <MinutesCounter />
-            
             <ThemeToggle />
 
-            <div className="flex items-center gap-1 md:gap-2 pl-1 md:pl-4 border-l border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <span className="hidden lg:inline text-sm text-gray-600 dark:text-gray-300 truncate max-w-[150px]">
-                {user?.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 md:gap-2 px-2 md:px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <LogOut size={16} />
-                <span className="hidden md:inline">Logout</span>
-              </button>
-            </div>
+            <div className="h-6 w-px bg-border hidden md:block" />
+
+            {/* SIMPLIFIED: Just a logout button */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleLogout}
+              className="gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden md:inline text-sm">Logout</span>
+            </Button>
           </div>
         </div>
       </header>
 
       <div className="flex">
         {/* Desktop Sidebar */}
-        <aside className={`w-64 border-r ${
-          resolvedTheme === 'dark' 
-            ? 'bg-gray-800 border-gray-700' 
-            : 'bg-white border-gray-200'
-        } min-h-[calc(100vh-64px)] hidden md:block`}>
+        <aside className="w-64 border-r border-border bg-background hidden md:block">
           <nav className="p-4 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -122,13 +118,14 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium",
                     isActive
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
                 >
-                  <Icon size={20} />
+                  <Icon className="w-5 h-5" />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -137,9 +134,7 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 p-4 md:p-8 ${
-          resolvedTheme === 'dark' ? 'bg-gray-900' : 'bg-white'
-        }`}>
+        <main className="flex-1 p-4 md:p-8 bg-background">
           {children}
         </main>
       </div>

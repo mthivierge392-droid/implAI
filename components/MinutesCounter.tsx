@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { showToast } from '@/components/toast';
+import { cn } from '@/lib/utils';
 
 export default function MinutesCounter() {
   const [minutes, setMinutes] = useState({
@@ -99,34 +100,40 @@ export default function MinutesCounter() {
   const isEmpty = minutes.remaining <= 0;
 
   return (
-    <div className={`px-3 md:px-6 py-2 md:py-3 border-r border-gray-200 ${
-      isEmpty ? 'bg-red-50' : isLow ? 'bg-yellow-50' : 'bg-white'
-    }`}>
-      <div className="flex items-center justify-between gap-2 md:gap-4 min-w-0">
+    <div className={cn(
+      "px-3 md:px-4 py-2 border-r border-border",
+      isEmpty && "bg-destructive/10 border-destructive/20",
+      isLow && !isEmpty && "bg-warning/10 border-warning/20"
+    )}>
+      <div className="flex items-center gap-3">
         <div className="min-w-0">
-          {/* Desktop label */}
-          <p className={`hidden md:block text-xs font-medium ${
-            isEmpty ? 'text-red-600' : isLow ? 'text-yellow-600' : 'text-gray-600'
-          }`}>
+          <p className={cn(
+            "hidden md:block text-xs font-medium",
+            isEmpty && "text-destructive",
+            isLow && !isEmpty && "text-warning",
+            !isLow && !isEmpty && "text-muted-foreground"
+          )}>
             Minutes left
           </p>
-          {/* Mobile: no label, just numbers */}
-          <p className={`text-sm md:text-lg font-bold ${
-            isEmpty ? 'text-red-700' : isLow ? 'text-yellow-700' : 'text-gray-800'
-          }`}>
+          <p className={cn(
+            "text-sm md:text-base font-bold",
+            isEmpty && "text-destructive",
+            isLow && !isEmpty && "text-warning",
+            !isLow && !isEmpty && "text-foreground"
+          )}>
             {minutes.remaining} / {minutes.included}
           </p>
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="w-16 md:w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all ${
-                isEmpty ? 'bg-red-600' : isLow ? 'bg-yellow-500' : 'bg-green-500'
-              }`}
-              style={{ width: `${Math.min(percentage, 100)}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">{percentage}%</p>
+        <div className="w-16 h-2 bg-border rounded-full overflow-hidden">
+          <div
+            className={cn(
+              "h-full transition-all",
+              isEmpty && "bg-destructive",
+              isLow && !isEmpty && "bg-warning",
+              !isLow && !isEmpty && "bg-success"
+            )}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          />
         </div>
       </div>
     </div>

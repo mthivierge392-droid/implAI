@@ -1,58 +1,128 @@
 /* app/globals.css */
 @import 'tailwindcss';
 
-/* CSS Variables for theming */
+/* ============================================
+   SEMANTIC DESIGN TOKENS - THE FOUNDATION
+   ============================================ */
+
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 84% 4.9%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
-  --radius: 0.5rem;
+  /* Brand Colors */
+  --color-primary-500: 221 83% 53%;      /* #2563eb */
+  --color-primary-600: 217 91% 60%;      /* #3b82f6 */
+  
+  /* Semantic Colors */
+  --color-background: 0 0% 100%;
+  --color-foreground: 222 84% 5%;
+  --color-card: 0 0% 100%;
+  --color-card-foreground: 222 84% 5%;
+  --color-popover: 0 0% 100%;
+  --color-popover-foreground: 222 84% 5%;
+  --color-primary: 221 83% 53%;
+  --color-primary-foreground: 210 40% 98%;
+  --color-secondary: 210 40% 96%;
+  --color-secondary-foreground: 222 84% 5%;
+  --color-muted: 210 40% 96%;
+  --color-muted-foreground: 215 16% 47%;
+  --color-accent: 210 40% 96%;
+  --color-accent-foreground: 222 84% 5%;
+  --color-destructive: 0 84% 60%;
+  --color-destructive-foreground: 210 40% 98%;
+  --color-success: 142 76% 36%;
+  --color-success-foreground: 210 40% 98%;
+  --color-warning: 45 93% 47%;
+  --color-warning-foreground: 222 84% 5%;
+  --color-border: 214 32% 92%;
+  --color-input: 214 32% 92%;
+  --color-ring: 221 83% 53%;
+  --color-shadow: 222 84% 5%;
+
+  /* Typography */
+  --font-sans: 'Geist', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-mono: 'Geist Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', monospace;
+
+  /* Spacing Scale (using Tailwind's but semantic) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 hsl(var(--color-shadow) / 0.05);
+  --shadow: 0 1px 3px 0 hsl(var(--color-shadow) / 0.1), 0 1px 2px -1px hsl(var(--color-shadow) / 0.1);
+  --shadow-md: 0 4px 6px -1px hsl(var(--color-shadow) / 0.1), 0 2px 4px -2px hsl(var(--color-shadow) / 0.1);
+  --shadow-lg: 0 10px 15px -3px hsl(var(--color-shadow) / 0.1), 0 4px 6px -4px hsl(var(--color-shadow) / 0.1);
+  --shadow-xl: 0 20px 25px -5px hsl(var(--color-shadow) / 0.1), 0 8px 10px -6px hsl(var(--color-shadow) / 0.1);
+
+  /* Animations */
+  --animate-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --animate-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 84% 4.9%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 94.1%;
+  --color-background: 222 84% 5%;
+  --color-foreground: 210 40% 98%;
+  --color-card: 222 84% 5%;
+  --color-card-foreground: 210 40% 98%;
+  --color-popover: 222 84% 5%;
+  --color-popover-foreground: 210 40% 98%;
+  --color-primary: 217 91% 60%;
+  --color-primary-foreground: 222 84% 5%;
+  --color-secondary: 217 33% 18%;
+  --color-secondary-foreground: 210 40% 98%;
+  --color-muted: 217 33% 18%;
+  --color-muted-foreground: 215 20% 65%;
+  --color-accent: 217 33% 18%;
+  --color-accent-foreground: 210 40% 98%;
+  --color-destructive: 0 62% 31%;
+  --color-destructive-foreground: 210 40% 98%;
+  --color-success: 142 76% 42%;
+  --color-success-foreground: 210 40% 98%;
+  --color-warning: 45 93% 58%;
+  --color-warning-foreground: 222 84% 5%;
+  --color-border: 217 33% 18%;
+  --color-input: 217 33% 18%;
+  --color-ring: 217 91% 60%;
+  --color-shadow: 0 0% 0%;
 }
 
 @layer base {
   * {
-    @apply border-gray-200 dark:border-gray-700;
+    @apply border-border;
   }
+  
   body {
-    @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-white;
-    font-family: Arial, Helvetica, sans-serif;
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Focus styles for accessibility */
+  :focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
+  }
+}
+
+@layer utilities {
+  /* Smooth transitions for interactive elements */
+  .transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  
+  .transition-colors {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
+  }
+  
+  .transition-transform {
+    transition-property: transform;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 150ms;
   }
 }

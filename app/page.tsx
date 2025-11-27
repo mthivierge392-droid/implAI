@@ -1,36 +1,48 @@
+// app/page.tsx
 'use client';
 
 import LoginForm from '@/components/LoginForm';
-import { Phone } from 'lucide-react';
+import { Phone, Shield, Zap } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Card Container */}
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8">
-          {/* Logo/Header */}
-          <div className="text-center mb-8">
-            <div className="mx-auto w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
-              <Phone size={24} className="text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-grid-white/10 dark:bg-grid-white/5 bg-grid-black/5 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
+      
+      <div className="relative w-full max-w-md">
+        <Card className="border-0 shadow-2xl">
+          <CardHeader className="space-y-4 pb-6">
+            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-xl flex items-center justify-center">
+              <Phone className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-1">
-              Welcome Back
-            </h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Sign in to your AI monitoring dashboard
-            </p>
+            <div className="space-y-2 text-center">
+              <CardTitle className="text-2xl font-bold">AI Phone Agents</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Professional monitoring dashboard for your AI calling system
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <LoginForm />
+          </CardContent>
+        </Card>
+
+        <div className="mt-6 grid grid-cols-3 gap-4 text-xs text-muted-foreground">
+          <div className="flex flex-col items-center gap-1">
+            <Shield className="w-4 h-4" />
+            <span>Secure</span>
           </div>
-
-          {/* Login Form */}
-          <LoginForm />
-        </div>
-
-        {/* Subtle Footer */}
-        <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
-          Protected by enterprise-grade security
+          <div className="flex flex-col items-center gap-1">
+            <Zap className="w-4 h-4" />
+            <span>Real-time</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Phone className="w-4 h-4" />
+            <span>Enterprise</span>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
