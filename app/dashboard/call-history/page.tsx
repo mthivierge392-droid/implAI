@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_SEARCH_LENGTH = 20;
@@ -198,11 +199,14 @@ export default function CallHistoryPage() {
       showToast(`Search too long (max ${MAX_SEARCH_LENGTH} characters)`, 'error');
       return;
     }
+    setSearchPhone(searchInput);
     setPage(0);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // FIXED: Proper enter key handler
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleSearch();
     }
   };
@@ -229,18 +233,18 @@ export default function CallHistoryPage() {
 
   const getStatusBadge = (status: string | null) => {
     const variant = {
-      completed: 'success',
-      failed: 'destructive',
-      no_answer: 'warning',
-      in_progress: 'default',
-    } as const;
+      completed: 'success' as const,
+      failed: 'destructive' as const,
+      no_answer: 'warning' as const,
+      in_progress: 'default' as const,
+    };
 
     const label = {
       completed: 'Completed',
       failed: 'Failed',
       no_answer: 'No Answer',
       in_progress: 'In Progress',
-    } as const;
+    };
 
     return (
       <Badge variant={variant[status as keyof typeof variant] || 'outline'}>
@@ -293,8 +297,8 @@ export default function CallHistoryPage() {
                 placeholder="Search phone number..."
                 value={searchInput}
                 onChange={(e) => handleInputChange(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background focus:ring-2 focus:ring-ring focus:border-ring"
+                onKeyDown={handleKeyDown} // FIXED: Enter key triggers search
+                className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-ring transition-all"
               />
             </div>
             <Button onClick={handleSearch} className="gap-2">

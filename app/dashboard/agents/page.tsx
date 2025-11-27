@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
-import { X, Loader2, Cpu, Edit3, MessageSquare } from 'lucide-react';
+import { X, Loader2, MessageSquare, Edit3 } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -75,13 +75,11 @@ export default function AgentsPage() {
         return;
       }
 
-      // Optimistic update
       const updatedAgents = agents.map(a => 
         a.id === selectedAgent.id ? { ...a, prompt: editingPrompt } : a
       );
       setAgents(updatedAgents);
 
-      // API call
       const response = await fetch('/api/retell/update-llm', {
         method: 'PATCH',
         headers: {
@@ -98,7 +96,6 @@ export default function AgentsPage() {
         throw new Error(`Update failed: ${response.status}`);
       }
 
-      // Database update
       await supabase
         .from('agents')
         .update({ prompt: editingPrompt })
@@ -130,7 +127,6 @@ export default function AgentsPage() {
               <div className="space-y-2">
                 <Skeleton className="h-3 w-48" />
                 <Skeleton className="h-3 w-40" />
-                <Skeleton className="h-3 w-52" />
               </div>
             </CardContent>
           </Card>
@@ -143,7 +139,7 @@ export default function AgentsPage() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-          <Cpu className="w-8 h-8 text-muted-foreground" />
+          <MessageSquare className="w-8 h-8 text-muted-foreground" />
         </div>
         <h2 className="text-xl font-semibold text-foreground mb-2">No agents yet</h2>
         <p className="text-muted-foreground text-sm max-w-md text-center">
@@ -171,7 +167,7 @@ export default function AgentsPage() {
                   </div>
                   <div>
                     <CardTitle className="text-lg">{agent.agent_name}</CardTitle>
-                    <CardDescription>Agent ID: {agent.retell_agent_id}</CardDescription>
+                    <CardDescription className="font-mono">{agent.retell_agent_id}</CardDescription>
                   </div>
                 </div>
                 <Button 
@@ -184,19 +180,8 @@ export default function AgentsPage() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Voice</p>
-                <p className="text-sm text-foreground">{agent.voice}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Greeting</p>
-                <p className="text-sm text-foreground truncate">{agent.begin_sentence}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Status</p>
-                <Badge variant="success">Active</Badge>
-              </div>
+            <CardContent className="pt-0">
+              <Badge variant="success">Active</Badge>
             </CardContent>
           </Card>
         ))}
@@ -242,7 +227,7 @@ export default function AgentsPage() {
               
               {error && (
                 <div className="mt-4 p-3 rounded-lg border border-destructive/20 bg-destructive/10">
-                  <p className="text-sm text-destructive-foreground">{error}</p>
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
               )}
             </div>
@@ -268,9 +253,7 @@ export default function AgentsPage() {
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Saving...
                   </>
-                ) : (
-                  'Save Prompt'
-                )}
+                ) : 'Save Prompt'}
               </Button>
             </div>
           </div>

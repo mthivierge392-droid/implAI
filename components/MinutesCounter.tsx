@@ -101,36 +101,50 @@ export default function MinutesCounter() {
 
   return (
     <div className={cn(
-      "px-3 md:px-4 py-2 border-r border-border",
+      "px-3 md:px-4 py-2 border-r border-border flex items-center gap-3",
       isEmpty && "bg-destructive/10 border-destructive/20",
       isLow && !isEmpty && "bg-warning/10 border-warning/20"
     )}>
-      <div className="flex items-center gap-3">
-        <div className="min-w-0">
-          <p className={cn(
-            "hidden md:block text-xs font-medium",
-            isEmpty && "text-destructive",
-            isLow && !isEmpty && "text-warning",
-            !isLow && !isEmpty && "text-muted-foreground"
-          )}>
-            Minutes left
-          </p>
-          <p className={cn(
-            "text-sm md:text-base font-bold",
-            isEmpty && "text-destructive",
-            isLow && !isEmpty && "text-warning",
-            !isLow && !isEmpty && "text-foreground"
-          )}>
-            {minutes.remaining} / {minutes.included}
-          </p>
-        </div>
-        <div className="w-16 h-2 bg-border rounded-full overflow-hidden">
+      {/* Glowing Status Light */}
+      <div className="relative">
+        <div className={cn(
+          "w-3 h-3 rounded-full",
+          isEmpty ? "bg-destructive" : isLow ? "bg-warning" : "bg-success",
+        )}></div>
+        <div className={cn(
+          "absolute inset-0 rounded-full animate-pulse",
+          isEmpty ? "bg-destructive/40" : isLow ? "bg-warning/40" : "bg-success/40",
+        )}></div>
+        <div className={cn(
+          "absolute inset-0 rounded-full animate-ping",
+          isEmpty ? "bg-destructive/20" : isLow ? "bg-warning/20" : "bg-success/20",
+        )}></div>
+      </div>
+
+      <div className="min-w-0">
+        <p className={cn(
+          "hidden md:block text-xs font-medium",
+          isEmpty && "text-destructive",
+          isLow && !isEmpty && "text-warning",
+          !isLow && !isEmpty && "text-muted-foreground"
+        )}>
+          Minutes left
+        </p>
+        <p className={cn(
+          "text-sm md:text-base font-bold",
+          isEmpty && "text-destructive",
+          isLow && !isEmpty && "text-warning",
+          !isLow && !isEmpty && "text-foreground"
+        )}>
+          {minutes.remaining} / {minutes.included}
+        </p>
+      </div>
+      <div className="flex-1">
+        <div className="w-full h-2 bg-border rounded-full overflow-hidden">
           <div
             className={cn(
               "h-full transition-all",
-              isEmpty && "bg-destructive",
-              isLow && !isEmpty && "bg-warning",
-              !isLow && !isEmpty && "bg-success"
+              isEmpty ? "bg-destructive" : isLow ? "bg-warning" : "bg-success"
             )}
             style={{ width: `${Math.min(percentage, 100)}%` }}
           />
