@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
 import { X, Loader2, Cpu, Edit3, MessageSquare } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { Button } from '@/components/ui/buttonutton';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
