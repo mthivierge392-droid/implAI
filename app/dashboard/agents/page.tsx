@@ -3,20 +3,41 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
-import { Cpu, Loader2, Pencil, X, Check, MessageSquare } from 'lucide-react';
-import { showToast } from '@/components/toast';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { toast } from 'sonner';
+import { AlertCircle, CheckCircle2, Cpu, Edit2, Save, X } from 'lucide-react';
+
+interface UpdateAgentPromptParams {
+  agentId: string;
+  retellLlmId: string;
+  prompt: string;
+}
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchAgents = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       const { data: client } = await supabase
@@ -37,9 +58,9 @@ export default function AgentsPage() {
       setAgents(data || []);
     } catch (err) {
       console.error('Error loading agents:', err);
-      showToast('Failed to load agents', 'error');
+      toast.error('Failed to load agents');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
@@ -47,51 +68,76 @@ export default function AgentsPage() {
     fetchAgents();
   }, [fetchAgents]);
 
-  const handleEditName = (agent: Agent) => {
-    setEditingAgent(agent);
-    setEditingName(agent.agent_name || '');
-  };
+  const handleEditPrompt = useCallback((agent: Agent) => {
+    setSelectedAgent(agent);
+    setEditingPrompt(agent.prompt || '');
+    setError(null);
+  }, []);
 
-  const handleSaveName = async () => {
-    if (!editingAgent || !editingName.trim()) return;
-
-    setSaving(true);
-    
-    try {
-      const updatedAgents = agents.map(a => 
-        a.id === editingAgent.id ? { ...a, agent_name: editingName } : a
-      );
-      setAgents(updatedAgents);
-
-      const { error } = await supabase
-        .from('agents')
-        .update({ agent_name: editingName })
-        .eq('id', editingAgent.id);
-
-      if (error) throw error;
-
-      setEditingAgent(null);
-      showToast('Agent name updated', 'success');
-      
-    } catch (error) {
-      console.error('Error saving agent name:', error);
-      await fetchAgents();
-      showToast('Error saving name', 'error');
-    } finally {
-      setSaving(false);
+  const handleSavePrompt = useCallback(async () => {
+    if (!selectedAgent || !editingPrompt.trim()) {
+      toast.error('Prompt cannot be empty');
+      return;
     }
-  };
 
-  if (loading) {
+    setIsSaving(true);
+    setError(null);
+
+    const originalPrompt = selectedAgent.prompt;
+    const optimisticUpdate = agents.map((a) =>
+      a.id === selectedAgent.id ? { ...a, prompt: editingPrompt } : a
+    );
+
+    setAgents(optimisticUpdate);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      await updateAgentPrompt({
+        agentId: selectedAgent.id,
+        retellLlmId: selectedAgent.retell_llm_id,
+        prompt: editingPrompt,
+        sessionToken: session.access_token,
+      });
+
+      setSelectedAgent(null);
+      toast.success('Prompt updated successfully', {
+        icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+      });
+    } catch (error) {
+      console.error('Error saving prompt:', error);
+      setAgents((prev) =>
+        prev.map((a) =>
+          a.id === selectedAgent.id ? { ...a, prompt: originalPrompt } : a
+        )
+      );
+      setError('Failed to save prompt. Please try again.');
+      toast.error('Error saving prompt');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [agents, editingPrompt, selectedAgent]);
+
+  if (isLoading) {
     return (
-      <div className="grid gap-4 md:gap-6">
+      <div className="space-y-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-            <div className="space-y-4">
-              <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-40 mb-3 animate-pulse" />
-              <div className="h-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-            </div>
-          </div>
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+              <Skeleton className="h-4 w-48 mt-2" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-4 w-40 mb-2" />
+              <Skeleton className="h-4 w-52" />
+            </CardContent>
+            <CardFooter>
+              <Skeleton className="h-10 w-24" />
+            </CardFooter>
+          </Card>
         ))}
       </div>
     );
@@ -99,184 +145,161 @@ export default function AgentsPage() {
 
   if (agents.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 md:p-12 text-center">
-        <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Cpu size={32} className="text-slate-400 dark:text-slate-500" />
-        </div>
-        <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-          No Agents Created
-        </h3>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
-          Contact us to create your first AI agent
-        </p>
-        <a
-          href="mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Agent%20Creation"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all"
-        >
-          <MessageSquare size={18} />
-          Request Agent Creation
-        </a>
-      </div>
+      <Card className="flex flex-col items-center justify-center py-12">
+        <Cpu className="h-12 w-12 text-muted-foreground mb-4" />
+        <CardTitle className="text-xl">No agents created</CardTitle>
+        <CardDescription className="mt-2">
+          Contact support to create your first agent
+        </CardDescription>
+        <Button className="mt-6" variant="outline" onClick={fetchAgents}>
+          Refresh
+        </Button>
+      </Card>
     );
   }
 
   return (
-    <div className="min-w-0">
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">
-          My AI Agents
-        </h1>
-        <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm md:text-base">
-          Manage your agents and their prompts
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">My Agents</h1>
+        <p className="text-muted-foreground mt-2">
+          Manage and customize your AI agents
         </p>
       </div>
 
-      <div className="grid gap-4 md:gap-6">
-        {agents.map(agent => (
-          <AgentCard 
-            key={agent.id} 
-            agent={agent}
-            onEditName={handleEditName}
-          />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {agents.map((agent) => (
+          <Card key={agent.id} className="group hover:shadow-lg transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span className="truncate">{agent.agent_name}</span>
+              </CardTitle>
+              <CardDescription className="flex items-center gap-2 mt-1">
+                <span className="font-mono text-xs">{agent.retell_agent_id}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Voice</span>
+                <span className="text-sm font-medium capitalize">{agent.voice}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Greeting</span>
+                <span className="text-sm font-medium truncate max-w-[150px]">
+                  {agent.begin_sentence}
+                </span>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => handleEditPrompt(agent)}
+                className="w-full"
+                variant="outline"
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Prompt
+              </Button>
+            </CardFooter>
+          </Card>
         ))}
       </div>
 
-      {/* Edit Name Modal */}
-      {editingAgent && (
-        <NameEditModal
-          name={editingName}
-          setName={setEditingName}
-          onSave={handleSaveName}
-          onClose={() => setEditingAgent(null)}
-          saving={saving}
-        />
-      )}
+      <Dialog
+        open={!!selectedAgent}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedAgent(null);
+            setError(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Agent Prompt</DialogTitle>
+            <DialogDescription>{selectedAgent?.agent_name}</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-4">
+            <Textarea
+              value={editingPrompt}
+              onChange={(e) => {
+                setEditingPrompt(e.target.value);
+                if (error) setError(null);
+              }}
+              placeholder="Enter prompt for your agent..."
+              className="min-h-[300px] resize-none"
+              disabled={isSaving}
+            />
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedAgent(null);
+                setError(null);
+              }}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePrompt}
+              disabled={isSaving || !editingPrompt.trim()}
+            >
+              {isSaving ? (
+                <>
+                  <Save className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function AgentCard({ agent, onEditName }: { agent: Agent; onEditName: (agent: Agent) => void }) {
-  return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-600 transition-all">
-      {/* Header */}
-      <div className="p-6 border-b border-slate-100 dark:border-slate-700">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0 flex-1">
-            <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Cpu size={18} className="text-slate-600 dark:text-slate-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
-                {agent.agent_name || 'Unnamed Agent'}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Created {new Date(agent.created_at).toLocaleDateString('en-US', { 
-                  month: 'short', 
-                  day: 'numeric', 
-                  year: 'numeric' 
-                })}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => onEditName(agent)}
-            className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex-shrink-0"
-            title="Edit agent name"
-          >
-            <Pencil size={18} />
-          </button>
-        </div>
-      </div>
+async function updateAgentPrompt({
+  agentId,
+  retellLlmId,
+  prompt,
+  sessionToken,
+}: UpdateAgentPromptParams & { sessionToken: string }) {
+  const response = await fetch('/api/retell/update-llm', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${sessionToken}`,
+    },
+    body: JSON.stringify({
+      llm_id: retellLlmId,
+      general_prompt: prompt,
+    }),
+  });
 
-      {/* Prompt Section */}
-      {agent.prompt && (
-        <div className="p-6 bg-slate-50 dark:bg-slate-900/30">
-          <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-            System Prompt
-          </h4>
-          <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-            {agent.prompt}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+  if (!response.ok) {
+    throw new Error(`Update failed: ${response.status}`);
+  }
 
-function NameEditModal({
-  name,
-  setName,
-  onSave,
-  onClose,
-  saving
-}: {
-  name: string;
-  setName: (name: string) => void;
-  onSave: () => void;
-  onClose: () => void;
-  saving: boolean;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Edit Agent Name
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-        
-        <div className="p-6">
-          <label htmlFor="agent-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-            Agent Name
-          </label>
-          <input
-            id="agent-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g., Sales Agent, Support Bot"
-            className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            autoFocus
-          />
-        </div>
+  const { error } = await supabase
+    .from('agents')
+    .update({ prompt })
+    .eq('id', agentId);
 
-        <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-700">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 font-medium transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onSave}
-            disabled={!name.trim() || saving}
-            className={cn(
-              "flex-1 px-4 py-2 rounded-lg font-medium transition-all",
-              name.trim() && !saving
-                ? "bg-blue-600 hover:bg-blue-700 text-white active:scale-95"
-                : "bg-slate-300 text-slate-500 cursor-not-allowed"
-            )}
-          >
-            {saving ? (
-              <>
-                <Loader2 size={16} className="animate-spin inline mr-2" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Check size={16} className="inline mr-2" />
-                Save
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  if (error) throw error;
 }
