@@ -1,3 +1,4 @@
+// app/dashboard/layout.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -11,7 +12,6 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { MobileNav } from '@/components/mobile-nav';
 import { LayoutDashboard, Cpu, Phone, LogOut } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { Toaster } from '@/components/ui/sonner'; // Add this import
 
 export default function DashboardLayout({
   children,
@@ -146,9 +146,6 @@ export default function DashboardLayout({
 
       {/* Mobile Navigation */}
       <MobileNav />
-      
-      {/* Add Toaster here */}
-      <Toaster />
     </div>
   );
 }
