@@ -1,3 +1,4 @@
+// components/LoginForm.tsx
 'use client';
 
 import { useState } from 'react';
@@ -136,7 +137,7 @@ export default function LoginForm() {
         type="submit"
         disabled={loading}
         className={cn(
-          "w-full py-3 px-4 rounded-lg font-semibold text-white transition-all",
+          "w-full py-3 px-4 rounded-lg font-semibold text-white transition-all cursor-pointer",
           "bg-blue-600 hover:bg-blue-700 active:scale-95",
           "disabled:bg-slate-400 disabled:cursor-not-allowed disabled:scale-100",
           "flex items-center justify-center gap-2"
@@ -155,9 +156,12 @@ export default function LoginForm() {
         )}
       </button>
 
-      {/* Contact Us Link - FIXED VERSION */}
+      {/* Contact Us Link - FIXED */}
       <a
         href="mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Monitoring%20Account"
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => showToast('Opening email client...', 'info')}
         className={cn(
           "w-full py-3 px-4 rounded-lg font-medium transition-all",
           "text-blue-600 hover:text-blue-700",
@@ -165,7 +169,8 @@ export default function LoginForm() {
           "border border-blue-200 dark:border-blue-800",
           "hover:bg-blue-50 dark:hover:bg-blue-900/20",
           "flex items-center justify-center gap-2",
-          "text-center no-underline" // Prevents default link styling
+          "text-center no-underline cursor-pointer",
+          "active:scale-95"
         )}
       >
         <Mail size={18} />
