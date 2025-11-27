@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
-import { Cpu, Loader2, Pencil, MessageSquare, Check, X } from 'lucide-react';
+import { Cpu, Loader2, Pencil, X, Check, MessageSquare } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
 
@@ -58,13 +58,11 @@ export default function AgentsPage() {
     setSaving(true);
     
     try {
-      // Optimistic update
       const updatedAgents = agents.map(a => 
         a.id === editingAgent.id ? { ...a, agent_name: editingName } : a
       );
       setAgents(updatedAgents);
 
-      // Database update
       const { error } = await supabase
         .from('agents')
         .update({ agent_name: editingName })
@@ -77,16 +75,11 @@ export default function AgentsPage() {
       
     } catch (error) {
       console.error('Error saving agent name:', error);
-      await fetchAgents(); // Revert on error
+      await fetchAgents();
       showToast('Error saving name', 'error');
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleEditPrompt = async (agent: Agent) => {
-    // Keep existing prompt editing logic but hidden from UI
-    console.log('Prompt editing available via API only for agent:', agent.id);
   };
 
   if (loading) {
@@ -94,12 +87,9 @@ export default function AgentsPage() {
       <div className="grid gap-4 md:gap-6">
         {[...Array(3)].map((_, i) => (
           <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-40 mb-3 animate-pulse" />
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24 animate-pulse" />
-              </div>
-              <div className="h-9 w-20 bg-slate-200 dark:bg-slate-700 rounded-lg animate-pulse" />
+            <div className="space-y-4">
+              <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-40 mb-3 animate-pulse" />
+              <div className="h-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
             </div>
           </div>
         ))}
@@ -110,8 +100,8 @@ export default function AgentsPage() {
   if (agents.length === 0) {
     return (
       <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-8 md:p-12 text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Cpu size={32} className="text-white" />
+        <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Cpu size={32} className="text-slate-400 dark:text-slate-500" />
         </div>
         <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
           No Agents Created
@@ -137,7 +127,7 @@ export default function AgentsPage() {
           My AI Agents
         </h1>
         <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm md:text-base">
-          Manage your agents
+          Manage your agents and their prompts
         </p>
       </div>
 
@@ -167,33 +157,48 @@ export default function AgentsPage() {
 
 function AgentCard({ agent, onEditName }: { agent: Agent; onEditName: (agent: Agent) => void }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-600 transition-all">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Cpu size={20} className="text-white" />
+    <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-600 transition-all">
+      {/* Header */}
+      <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Cpu size={18} className="text-slate-600 dark:text-slate-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
+                {agent.agent_name || 'Unnamed Agent'}
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Created {new Date(agent.created_at).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
-              {agent.agent_name || 'Unnamed Agent'}
-            </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Created {new Date(agent.created_at).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric' 
-              })}
-            </p>
+          <button
+            onClick={() => onEditName(agent)}
+            className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex-shrink-0"
+            title="Edit agent name"
+          >
+            <Pencil size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Prompt Section */}
+      {agent.prompt && (
+        <div className="p-6 bg-slate-50 dark:bg-slate-900/30">
+          <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+            System Prompt
+          </h4>
+          <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+            {agent.prompt}
           </div>
         </div>
-        <button
-          onClick={() => onEditName(agent)}
-          className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors flex-shrink-0"
-          title="Edit agent name"
-        >
-          <Pencil size={18} />
-        </button>
-      </div>
+      )}
     </div>
   );
 }
