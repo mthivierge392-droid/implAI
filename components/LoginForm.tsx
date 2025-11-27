@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/components/toast';
+import { cn } from '@/lib/utils';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -21,102 +22,148 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     
+    // Validate
     const newErrors: typeof errors = {};
-    if (!validateEmail(email)) newErrors.email = 'Invalid email';
+    if (!validateEmail(email)) newErrors.email = 'Please enter a valid email';
     if (!validatePassword(password)) newErrors.password = 'Password must be at least 6 characters';
     
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
 
     setLoading(true);
+    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      router.push('/dashboard');
+      
       showToast('Login successful', 'success');
+      router.push('/dashboard');
+      router.refresh();
+      
     } catch (error: any) {
-      setError(error.message || 'Login error');
-      showToast('Login error', 'error');
+      console.error('Login error:', error);
+      
+      let message = 'Invalid credentials';
+      if (error.message?.includes('Invalid login')) {
+        message = 'Invalid email or password';
+      }
+      
+      setError(message);
+      showToast('Login failed', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="bg-white rounded-lg border border-gray-200 p-8">
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <span className="text-white font-bold text-lg">AI</span>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
-          <p className="text-gray-600 text-sm mt-2">Access your dashboard</p>
+    <form onSubmit={handleLogin} className="space-y-5">
+      {/* Error Message */}
+      {error && (
+        <div className={cn(
+          "p-3 rounded-lg border flex items-center gap-2 text-sm",
+          "bg-red-50 border-red-200 text-red-700",
+          "dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
+        )}>
+          <AlertCircle size={16} className="flex-shrink-0" />
+          <span>{error}</span>
         </div>
+      )}
 
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex gap-3">
-            <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-red-800 text-sm">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
-              Email
-            </label>
-            <div className="relative">
-              <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (errors.email) setErrors({ ...errors, email: undefined });
-                }}
-                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.email ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-            </div>
-            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-900 mb-2">
-              Password
-            </label>
-            <div className="relative">
-              <Lock size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  if (errors.password) setErrors({ ...errors, password: undefined });
-                }}
-                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.password ? 'border-red-300' : 'border-gray-300'
-                }`}
-              />
-            </div>
-            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
-          </div>
-
-          <button
-            type="submit"
+      {/* Email Field */}
+      <div className="space-y-2">
+        <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Email
+        </label>
+        <div className="relative">
+          <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (errors.email) setErrors(prev => ({ ...prev, email: undefined }));
+            }}
+            className={cn(
+              "w-full pl-10 pr-4 py-3 rounded-lg border text-base transition-all",
+              "bg-slate-50 dark:bg-slate-900",
+              "border-slate-200 dark:border-slate-700",
+              "text-slate-900 dark:text-slate-100",
+              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+              "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              errors.email && "border-red-500 focus:border-red-500 focus:ring-red-500"
+            )}
             disabled={loading}
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg flex items-center justify-center gap-2 mt-6"
-          >
-            <LogIn size={18} />
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+          />
+        </div>
+        {errors.email && <p className="text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
       </div>
-    </div>
+
+      {/* Password Field */}
+      <div className="space-y-2">
+        <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Password
+        </label>
+        <div className="relative">
+          <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errors.password) setErrors(prev => ({ ...prev, password: undefined }));
+            }}
+            className={cn(
+              "w-full pl-10 pr-4 py-3 rounded-lg border text-base transition-all",
+              "bg-slate-50 dark:bg-slate-900",
+              "border-slate-200 dark:border-slate-700",
+              "text-slate-900 dark:text-slate-100",
+              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+              "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+              errors.password && "border-red-500 focus:border-red-500 focus:ring-red-500"
+            )}
+            disabled={loading}
+          />
+        </div>
+        {errors.password && <p className="text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+      </div>
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={loading}
+        className={cn(
+          "w-full py-3 px-4 rounded-lg font-semibold text-white transition-all",
+          "bg-blue-600 hover:bg-blue-700 active:scale-95",
+          "disabled:bg-slate-400 disabled:cursor-not-allowed disabled:scale-100",
+          "flex items-center justify-center gap-2"
+        )}
+      >
+        {loading ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            Signing in...
+          </>
+        ) : (
+          <>
+            <LogIn size={18} />
+            Sign In
+          </>
+        )}
+      </button>
+
+      {/* Contact Us Button */}
+      <button
+        type="button"
+        onClick={() => window.location.href = 'mailto:mthivierge392@gmail.com'}
+        className="w-full py-3 px-4 rounded-lg font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-all border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center justify-center gap-2"
+      >
+        <Mail size={18} />
+        Contact us to create an account
+      </button>
+    </form>
   );
 }
