@@ -55,11 +55,6 @@ export default function LoginForm() {
     }
   };
 
-  const handleContactUs = () => {
-    // Opens default email client immediately
-    window.location.href = 'mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Monitoring%20Account';
-  };
-
   return (
     <form onSubmit={handleLogin} className="space-y-5">
       {/* Error Message */}
@@ -160,15 +155,22 @@ export default function LoginForm() {
         )}
       </button>
 
-      {/* Contact Us Button */}
-      <button
-        type="button"
-        onClick={handleContactUs}
-        className="w-full py-3 px-4 rounded-lg font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-all border border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center justify-center gap-2 mt-2"
+      {/* Contact Us Link - FIXED VERSION */}
+      <a
+        href="mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Monitoring%20Account"
+        className={cn(
+          "w-full py-3 px-4 rounded-lg font-medium transition-all",
+          "text-blue-600 hover:text-blue-700",
+          "dark:text-blue-400 dark:hover:text-blue-300",
+          "border border-blue-200 dark:border-blue-800",
+          "hover:bg-blue-50 dark:hover:bg-blue-900/20",
+          "flex items-center justify-center gap-2",
+          "text-center no-underline" // Prevents default link styling
+        )}
       >
         <Mail size={18} />
         Contact us to create an account
-      </button>
+      </a>
     </form>
   );
 }
