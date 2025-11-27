@@ -1,3 +1,4 @@
+// components/theme-toggle.tsx
 'use client';
 
 import * as React from 'react';
@@ -14,7 +15,7 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <button className="w-10 h-10 rounded-lg flex items-center justify-center opacity-50">
+      <button className="w-10 h-10 rounded-lg flex items-center justify-center opacity-50 cursor-pointer">
         <Sun className="h-[1.2rem] w-[1.2rem]" />
       </button>
     );
@@ -23,7 +24,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+      className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-accent transition-colors cursor-pointer"
     >
       <Sun className={`h-[1.2rem] w-[1.2rem] transition-all ${theme === 'dark' ? 'opacity-0' : 'opacity-100'}`} />
       <Moon className={`absolute h-[1.2rem] w-[1.2rem] transition-all ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`} />

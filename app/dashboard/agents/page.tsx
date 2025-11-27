@@ -19,19 +19,25 @@ export default function AgentsPage() {
   const [editingPrompt, setEditingPrompt] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMinutes, setHasMinutes] = useState(true);
 
   const fetchAgents = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Fetch client data to check minutes
       const { data: client } = await supabase
         .from('clients')
-        .select('user_id')
+        .select('user_id, minutes_included, minutes_used')
         .eq('user_id', user.id)
         .single();
 
       if (!client) throw new Error('Client not found');
+
+      // Check if has minutes
+      const remaining = Math.max(0, client.minutes_included - client.minutes_used);
+      setHasMinutes(remaining > 0);
 
       const { data, error } = await supabase
         .from('agents')
@@ -51,6 +57,28 @@ export default function AgentsPage() {
 
   useEffect(() => {
     fetchAgents();
+
+    // Subscribe to minutes changes for real-time status updates
+    const channel = supabase
+      .channel('agents-minutes-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'clients',
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
+          setHasMinutes(remaining > 0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAgents]);
 
   const handleEditPrompt = (agent: Agent) => {
@@ -167,7 +195,7 @@ export default function AgentsPage() {
                   </div>
                   <div>
                     <CardTitle className="text-lg">{agent.agent_name}</CardTitle>
-                    <CardDescription className="font-mono">{agent.retell_agent_id}</CardDescription>
+                    <CardDescription className="font-mono text-xs">{agent.retell_agent_id}</CardDescription>
                   </div>
                 </div>
                 <Button 
@@ -181,7 +209,9 @@ export default function AgentsPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <Badge variant="success">Active</Badge>
+              <Badge variant={hasMinutes ? "success" : "destructive"}>
+                {hasMinutes ? "Active" : "Paused"}
+              </Badge>
             </CardContent>
           </Card>
         ))}
