@@ -1,4 +1,4 @@
-// app/dashboard/agents/page.tsx
+// app/dashboard/agents/page.tsx (complete)
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -209,18 +209,31 @@ export default function AgentsPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="inline-flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Badge variant={hasMinutes ? "success" : "destructive"}>
                   {hasMinutes ? "Active" : "Paused"}
                 </Badge>
-                {/* Red glowing light when paused */}
-                {!hasMinutes && (
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-full animate-pulse bg-destructive/40"></div>
-                    <div className="absolute inset-0 rounded-full animate-ping bg-destructive/20"></div>
-                    <div className="w-2 h-2 rounded-full bg-destructive relative"></div>
-                  </div>
-                )}
+                
+                {/* GLOW EFFECT - GREEN FOR ACTIVE, RED FOR PAUSED */}
+                <div className="relative w-3 h-3 flex-shrink-0">
+                  {/* Outer pulsing glow */}
+                  <div className={cn(
+                    "absolute inset-0 rounded-full animate-pulse",
+                    hasMinutes ? "bg-green-500/50" : "bg-destructive/50"
+                  )}></div>
+                  {/* Middle pinging glow */}
+                  <div className={cn(
+                    "absolute inset-0 rounded-full animate-ping",
+                    hasMinutes ? "bg-green-500/30" : "bg-destructive/30"
+                  )}></div>
+                  {/* Center dot with ring */}
+                  <div className={cn(
+                    "absolute inset-1 rounded-full ring-2",
+                    hasMinutes 
+                      ? "bg-green-500 ring-green-500/60" 
+                      : "bg-destructive ring-destructive/60"
+                  )}></div>
+                </div>
               </div>
             </CardContent>
           </Card>
