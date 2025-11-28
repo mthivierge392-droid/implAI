@@ -1,7 +1,7 @@
-// app/dashboard/layout.tsx (SIMPLIFIED VERSION - NO DROPDOWN)
+// app/dashboard/layout.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
@@ -9,6 +9,7 @@ import Link from 'next/link';
 import MinutesCounter from '@/components/MinutesCounter';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { MobileNav } from '@/components/mobile-nav';
+import { StripeBanner } from '@/components/StripeBanner';
 import { 
   LayoutDashboard, 
   Cpu, 
@@ -76,6 +77,9 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Stripe Payment Banner - ALWAYS VISIBLE */}
+      <StripeBanner />
+
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
         <div className="flex items-center justify-between h-16 px-4 md:px-6">
@@ -92,7 +96,6 @@ export default function DashboardLayout({
 
             <div className="h-6 w-px bg-border hidden md:block" />
 
-            {/* SIMPLIFIED: Just a logout button */}
             <Button 
               variant="ghost" 
               size="sm" 
@@ -107,9 +110,9 @@ export default function DashboardLayout({
       </header>
 
       <div className="flex">
-        {/* Desktop Sidebar */}
+        {/* Desktop Sidebar - Enhanced Hover Effects */}
         <aside className="w-64 border-r border-border bg-background hidden md:block">
-          <nav className="p-4 space-y-2">
+          <nav className="p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
@@ -119,13 +122,17 @@ export default function DashboardLayout({
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium",
+                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium relative overflow-hidden",
+                    "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+                    "focus:outline-none focus:ring-2 focus:ring-ring",
                     isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      ? "bg-accent text-accent-foreground font-semibold"
+                      : "text-muted-foreground"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
+                  {/* Hover background box effect */}
+                  <div className="absolute inset-0 bg-accent/0 hover:bg-accent/50 transition-colors rounded-lg -z-10"></div>
+                  <Icon className="w-5 h-5 transition-transform group-hover:scale-110" />
                   <span>{item.label}</span>
                 </Link>
               );

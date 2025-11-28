@@ -209,9 +209,19 @@ export default function AgentsPage() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <Badge variant={hasMinutes ? "success" : "destructive"}>
-                {hasMinutes ? "Active" : "Paused"}
-              </Badge>
+              <div className="inline-flex items-center gap-2">
+                <Badge variant={hasMinutes ? "success" : "destructive"}>
+                  {hasMinutes ? "Active" : "Paused"}
+                </Badge>
+                {/* Red glowing light when paused */}
+                {!hasMinutes && (
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full animate-pulse bg-destructive/40"></div>
+                    <div className="absolute inset-0 rounded-full animate-ping bg-destructive/20"></div>
+                    <div className="w-2 h-2 rounded-full bg-destructive relative"></div>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
