@@ -17,6 +17,8 @@ export default function AgentsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [editingPrompt, setEditingPrompt] = useState('');
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMinutes, setHasMinutes] = useState(true);
@@ -85,6 +87,51 @@ export default function AgentsPage() {
     setSelectedAgent(agent);
     setEditingPrompt(agent.prompt || '');
     setError(null);
+  };
+
+  const handleNameClick = (agent: Agent) => {
+    setEditingNameId(agent.id);
+    setEditingNameValue(agent.agent_name);
+  };
+
+  const handleNameSave = async (agent: Agent) => {
+    if (!editingNameValue.trim() || editingNameValue === agent.agent_name) {
+      setEditingNameId(null);
+      return;
+    }
+
+    const originalName = agent.agent_name;
+    
+    // Optimistically update UI
+    setAgents(prev => prev.map(a => 
+      a.id === agent.id ? { ...a, agent_name: editingNameValue } : a
+    ));
+    setEditingNameId(null);
+
+    try {
+      const { error } = await supabase
+        .from('agents')
+        .update({ agent_name: editingNameValue })
+        .eq('id', agent.id);
+
+      if (error) throw error;
+      showToast('Agent name updated', 'success');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      // Revert on error
+      setAgents(prev => prev.map(a => 
+        a.id === agent.id ? { ...a, agent_name: originalName } : a
+      ));
+      showToast('Failed to update name', 'error');
+    }
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent, agent: Agent) => {
+    if (e.key === 'Enter') {
+      handleNameSave(agent);
+    } else if (e.key === 'Escape') {
+      setEditingNameId(null);
+    }
   };
 
   const handleSavePrompt = async () => {
@@ -194,7 +241,24 @@ export default function AgentsPage() {
                     <MessageSquare className="w-5 h-5 text-primary" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">{agent.agent_name}</CardTitle>
+                    {editingNameId === agent.id ? (
+                      <input
+                        type="text"
+                        value={editingNameValue}
+                        onChange={(e) => setEditingNameValue(e.target.value)}
+                        onBlur={() => handleNameSave(agent)}
+                        onKeyDown={(e) => handleNameKeyDown(e, agent)}
+                        autoFocus
+                        className="text-lg font-semibold bg-background border border-input rounded px-2 py-1 focus:ring-2 focus:ring-ring focus:border-ring outline-none"
+                      />
+                    ) : (
+                      <CardTitle 
+                        className="text-lg cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => handleNameClick(agent)}
+                      >
+                        {agent.agent_name}
+                      </CardTitle>
+                    )}
                     <CardDescription className="font-mono text-xs">{agent.retell_agent_id}</CardDescription>
                   </div>
                 </div>
@@ -210,29 +274,51 @@ export default function AgentsPage() {
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex items-center gap-3">
-                <Badge variant={hasMinutes ? "success" : "destructive"}>
+                <Badge 
+                  variant={hasMinutes ? "success" : "destructive"}
+                  style={hasMinutes ? {
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    color: 'rgb(22, 163, 74)',
+                    borderColor: 'rgba(34, 197, 94, 0.3)'
+                  } : {
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    color: 'rgb(220, 38, 38)',
+                    borderColor: 'rgba(239, 68, 68, 0.3)'
+                  }}
+                >
                   {hasMinutes ? "Active" : "Paused"}
                 </Badge>
                 
                 {/* GLOW EFFECT - GREEN FOR ACTIVE, RED FOR PAUSED */}
-                <div className="relative w-3 h-3 flex-shrink-0">
+                <div className="relative w-4 h-4 flex-shrink-0">
                   {/* Outer pulsing glow */}
-                  <div className={cn(
-                    "absolute inset-0 rounded-full animate-pulse",
-                    hasMinutes ? "bg-green-500/50" : "bg-destructive/50"
-                  )}></div>
+                  <div 
+                    className="absolute inset-0 rounded-full animate-pulse"
+                    style={{
+                      backgroundColor: hasMinutes ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)',
+                      boxShadow: hasMinutes 
+                        ? '0 0 10px rgba(34, 197, 94, 0.6), 0 0 20px rgba(34, 197, 94, 0.4)' 
+                        : '0 0 10px rgba(239, 68, 68, 0.6), 0 0 20px rgba(239, 68, 68, 0.4)'
+                    }}
+                  ></div>
                   {/* Middle pinging glow */}
-                  <div className={cn(
-                    "absolute inset-0 rounded-full animate-ping",
-                    hasMinutes ? "bg-green-500/30" : "bg-destructive/30"
-                  )}></div>
-                  {/* Center dot with ring */}
-                  <div className={cn(
-                    "absolute inset-1 rounded-full ring-2",
-                    hasMinutes 
-                      ? "bg-green-500 ring-green-500/60" 
-                      : "bg-destructive ring-destructive/60"
-                  )}></div>
+                  <div 
+                    className="absolute inset-0 rounded-full animate-ping"
+                    style={{
+                      backgroundColor: hasMinutes ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'
+                    }}
+                  ></div>
+                  {/* Center dot */}
+                  <div 
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      margin: '4px',
+                      backgroundColor: hasMinutes ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
+                      boxShadow: hasMinutes 
+                        ? '0 0 4px rgba(34, 197, 94, 0.8)' 
+                        : '0 0 4px rgba(239, 68, 68, 0.8)'
+                    }}
+                  ></div>
                 </div>
               </div>
             </CardContent>
