@@ -1,37 +1,38 @@
-// lib/supabase-server.ts
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+/**
+ * Server-Side Supabase Client
+ * 
+ * 🎯 For API routes and server components
+ * 🔒 Uses ANON key but runs securely on the server
+ */
+
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-export async function createClient() {
+export async function supabaseServer() {
   const cookieStore = await cookies();
   
-  return createSupabaseClient(
+  // ✅ Removed <Database> type, replaced with <any>
+  return createServerClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false,
-        storage: {
-          getItem: (key: string): string | null => {
-            const cookie = cookieStore.get(key);
-            return cookie?.value ?? null;
-          },
-          setItem: (key: string, value: string): void => {
-            try {
-              cookieStore.set({ name: key, value });
-            } catch (error) {
-              // Ignore errors in server components
-            }
-          },
-          removeItem: (key: string): void => {
-            try {
-              cookieStore.set({ name: key, value: '', maxAge: 0 });
-            } catch (error) {
-              // Ignore errors in server components
-            }
-          },
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set({ name, value, ...options });
+          } catch {
+            // Cookie errors expected in server components
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set({ name, value: '', ...options, maxAge: 0 });
+          } catch {
+            // Cookie errors expected in server components
+          }
         },
       },
     }

@@ -4,7 +4,8 @@ import "./globals.css";
 import { Providers } from '@/lib/providers';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ToastContainer } from '@/components/toast';
-import { validateEnv } from '@/lib/validate-env'; // ✅ Added import
+import { validateEnv } from '@/lib/validate-env';
+import { APP_CONFIG } from '@/lib/config';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,11 +18,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Phone Agents - Monitoring",
-  description: "Gérez vos agents téléphoniques IA",
+  title: `${APP_CONFIG.name} - Monitoring`,
+  description: APP_CONFIG.description,
 };
 
-// ✅ Validate environment on startup (will crash app if vars are missing)
+// Validate environment on startup
 validateEnv();
 
 export default function RootLayout({
@@ -30,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <ThemeProvider>{children}</ThemeProvider>

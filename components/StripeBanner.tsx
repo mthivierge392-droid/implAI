@@ -1,14 +1,18 @@
-// components/StripeBanner.tsx
 'use client';
 
 import { Zap, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { showToast } from '@/components/toast';
+import { APP_CONFIG } from '@/lib/config';
 
 export function StripeBanner() {
-  const stripeUrl = "https://buy.stripe.com/eVq7sE5vu3x7d3o7GR6Na07";
+  const stripeUrl = APP_CONFIG.urls.stripePayment;
 
   const handleClick = () => {
+    if (!stripeUrl) {
+      showToast('Payment link not configured. Add NEXT_PUBLIC_STRIPE_PAYMENT_LINK to .env.local', 'error');
+      return;
+    }
     showToast('Redirecting to secure payment...', 'info');
     window.open(stripeUrl, '_blank', 'noopener,noreferrer');
   };
