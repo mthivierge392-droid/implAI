@@ -8,7 +8,6 @@ import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { APP_CONFIG } from '@/lib/config'; // ✅ NEW: Import config
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -20,9 +19,6 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
-
- 
-
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,17 +55,6 @@ export default function LoginForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // ✅ NEW: Dynamic mailto link using config
-  const handleContact = () => {
-    const supportEmail = APP_CONFIG.supportEmail;
-    if (!supportEmail) {
-      showToast('Support email not configured. Add NEXT_PUBLIC_SUPPORT_EMAIL to .env.local', 'error');
-      return;
-    }
-    window.location.href = `mailto:${supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account`;
-    showToast('Opening email client...', 'info');
   };
 
   return (
@@ -146,12 +131,13 @@ export default function LoginForm() {
         Sign In
       </Button>
 
-      {/* ✅ FIXED: Added type="button" to prevent form submission */}
       <Button 
-        type="button"  // ⭐ CRITICAL FIX: Prevents auto-login
         variant="outline" 
         className="w-full gap-2"
-        onClick={handleContact}
+        onClick={() => {
+          window.location.href = "mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Monitoring%20Account";
+          showToast('Opening email client...', 'info');
+        }}
       >
         <Mail size={18} />
         Contact us to create an account
