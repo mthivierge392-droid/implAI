@@ -10,7 +10,7 @@ export function StripeBanner() {
 
   const handleClick = () => {
     if (!stripeUrl) {
-      showToast('Payment link not configured. Add NEXT_PUBLIC_STRIPE_PAYMENT_LINK to .env.local', 'error');
+      showToast('Payment link not configured. Please contact support.', 'error');
       return;
     }
     showToast('Redirecting to secure payment...', 'info');

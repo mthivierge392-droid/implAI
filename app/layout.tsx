@@ -4,8 +4,6 @@ import "./globals.css";
 import { Providers } from '@/lib/providers';
 import { ThemeProvider } from '@/lib/theme-provider';
 import { ToastContainer } from '@/components/toast';
-import { validateEnv } from '@/lib/validate-env';
-import { APP_CONFIG } from '@/lib/config';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,13 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: `${APP_CONFIG.name} - Monitoring`,
-  description: APP_CONFIG.description,
+  title: "example",
+  description: "Real-time AI phone agent monitoring platform",
 };
-
-
-// Validate environment on startup
-validateEnv();
 
 export default function RootLayout({
   children,

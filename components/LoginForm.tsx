@@ -1,4 +1,3 @@
-// components/LoginForm.tsx
 'use client';
 
 import { useState } from 'react';
@@ -14,13 +13,6 @@ const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email
 const validatePassword = (password: string) => password.length >= 6;
 
 export default function LoginForm() {
-  // Debug: Check what's actually loaded
-  console.log('✅ Environment Check:', {
-    rawEnvVar: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    configValue: APP_CONFIG.supportEmail,
-    isUsingFallback: APP_CONFIG.supportEmail === 'support@yourapp.com'
-  });
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -32,7 +24,6 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     
-    // Validate
     const newErrors: typeof errors = {};
     if (!validateEmail(email)) newErrors.email = 'Please enter a valid email';
     if (!validatePassword(password)) newErrors.password = 'Password must be at least 6 characters';
