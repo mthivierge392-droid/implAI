@@ -8,6 +8,7 @@ import { Mail, Lock, LogIn, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { APP_CONFIG } from '@/lib/config';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -135,7 +136,7 @@ export default function LoginForm() {
         variant="outline" 
         className="w-full gap-2"
         onClick={() => {
-          window.location.href = "mailto:mthivierge392@gmail.com?subject=Request%20for%20AI%20Monitoring%20Account";
+          window.location.href = `mailto:${APP_CONFIG.supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account`;
           showToast('Opening email client...', 'info');
         }}
       >
