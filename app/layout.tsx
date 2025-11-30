@@ -22,6 +22,7 @@ export const metadata: Metadata = {
   description: APP_CONFIG.description,
 };
 
+
 // Validate environment on startup
 validateEnv();
 
