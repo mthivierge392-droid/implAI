@@ -14,6 +14,13 @@ const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email
 const validatePassword = (password: string) => password.length >= 6;
 
 export default function LoginForm() {
+  // Debug: Check what's actually loaded
+  console.log('✅ Environment Check:', {
+    rawEnvVar: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    configValue: APP_CONFIG.supportEmail,
+    isUsingFallback: APP_CONFIG.supportEmail === 'support@yourapp.com'
+  });
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -141,7 +148,7 @@ export default function LoginForm() {
 
       <button 
         type="button"
-        className="w-full gap-2 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer disabled:cursor-not-allowed" // ✅ Added cursor-pointer
+        className="w-full gap-2 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer disabled:cursor-not-allowed"
         onClick={handleSupportClick}
         disabled={loading}
       >

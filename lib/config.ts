@@ -12,7 +12,7 @@ export const APP_CONFIG = {
   // Branding - Safe defaults, override in .env.local
   name: process.env.NEXT_PUBLIC_APP_NAME || 'AI Phone Agents',
   description: process.env.NEXT_PUBLIC_APP_DESC || 'Real-time AI phone agent monitoring platform',
-  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@yourapp.com', // ✅ Added fallback
+  supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@yourapp.com',
   
   // URLs - Must be set in environment
   urls: {
