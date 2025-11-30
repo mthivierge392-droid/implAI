@@ -28,7 +28,7 @@ export const VALIDATION = {
   },
 } as const;
 
-// UI Configuration
+// UI Configurations
 export const UI_CONFIG = {
   TOAST_DURATION: 5000, // 5 seconds
   DEBOUNCE_DELAY: 300, // 300ms for search debouncing
