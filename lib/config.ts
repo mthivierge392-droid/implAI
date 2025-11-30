@@ -1,3 +1,4 @@
+// lib/config.ts
 /**
  * Central Application Configuration
  * 
@@ -14,10 +15,10 @@ export const APP_CONFIG = {
   description: process.env.NEXT_PUBLIC_APP_DESC || 'Real-time AI phone agent monitoring platform',
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@yourapp.com',
   
-  // URLs - Must be set in environment
+  // URLs - Safe fallbacks to prevent crashes
   urls: {
     // ✅ BUYER: Set NEXT_PUBLIC_STRIPE_PAYMENT_LINK in .env.local
-    stripePayment: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK!,
+    stripePayment: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || 'https://yourdomain.com/payment',
     
     // External APIs
     retell: {
