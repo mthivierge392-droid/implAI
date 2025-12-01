@@ -1,5 +1,5 @@
 // store/authStore.ts
-// Store Zustand pour gérer l'état de l'utilisateur connecté
+
 
 import { create } from 'zustand';
 import { User } from '@supabase/supabase-js';
