@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "AI Phone Agents",
   description: "Real-time AI phone agent monitoring platform",
+  manifest: '/manifest.json',
   icons: {
     icon: [
       { url: '/icon.png', sizes: 'any', type: 'image/png' },

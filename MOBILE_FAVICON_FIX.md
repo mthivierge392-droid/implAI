@@ -15,6 +15,7 @@ Your favicon now works on **both desktop AND mobile** devices!
 
 2. **Updated `app/layout.tsx`** with proper mobile configuration
    ```typescript
+   manifest: '/manifest.json',
    icons: {
      icon: [
        { url: '/icon.png', sizes: 'any', type: 'image/png' },
@@ -25,6 +26,10 @@ Your favicon now works on **both desktop AND mobile** devices!
      shortcut: '/icon.png',
    }
    ```
+
+3. **Created `public/manifest.json`** for PWA icon handling
+   - Mobile browsers require this for proper icon display
+   - Contains icon paths and sizes
 
 ## 🚀 **DEPLOY THE FIX NOW**
 
