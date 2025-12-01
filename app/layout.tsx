@@ -20,7 +20,10 @@ export const metadata: Metadata = {
   title: "AI Phone Agents",
   description: "Real-time AI phone agent monitoring platform",
   icons: {
-    icon: '/icon.png',
+    icon: [
+      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-icon.png',
   },
 };
 
