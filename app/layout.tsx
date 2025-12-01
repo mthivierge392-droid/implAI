@@ -21,9 +21,12 @@ export const metadata: Metadata = {
   description: "Real-time AI phone agent monitoring platform",
   icons: {
     icon: [
-      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+      { url: '/icon.png', sizes: 'any', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/icon.png',
   },
 };
 

@@ -14,42 +14,56 @@ Replace these files with your own branding:
 app/
 ├── icon.png          ← Your logo (512x512px recommended)
 └── apple-icon.png    ← iOS home screen icon (180x180px)
+
+public/
+├── icon.png          ← Same logo (for mobile compatibility)
+└── apple-touch-icon.png  ← iOS icon (for older devices)
 ```
+
+**💡 Why both locations?**
+- `app/` folder = Next.js 16 convention (desktop browsers)
+- `public/` folder = Legacy location (mobile browsers check here)
+- Having both ensures 100% compatibility across all devices!
 
 ### **Step-by-Step Instructions:**
 
-#### **Option 1: Simple Replacement** (Easiest)
+#### **Option 1: Simple Replacement** (Easiest - 2 Minutes)
 
 1. **Create your logo** as a PNG file
    - **Size**: 512x512 pixels (square)
    - **Format**: PNG with transparent background
-   - **Name**: Save as `icon.png`
+   - **Name**: Save as `your-logo.png`
 
-2. **Replace the existing file**
+2. **Replace in ALL locations** (important for mobile!)
    ```bash
-   # Navigate to the app folder
-   cd app/
-
-   # Delete the old icon
-   rm icon.png
-
-   # Copy your new icon
-   # (Drag and drop your icon.png file here)
+   # Copy your logo to all 4 locations:
+   cp your-logo.png app/icon.png
+   cp your-logo.png app/apple-icon.png
+   cp your-logo.png public/icon.png
+   cp your-logo.png public/apple-touch-icon.png
    ```
 
-3. **For iOS devices** (optional but recommended):
-   - Resize your logo to 180x180 pixels
-   - Save as `apple-icon.png` in the `app/` folder
+   **Or on Windows:**
+   ```batch
+   copy your-logo.png app\icon.png
+   copy your-logo.png app\apple-icon.png
+   copy your-logo.png public\icon.png
+   copy your-logo.png public\apple-touch-icon.png
+   ```
 
-4. **Redeploy**
+3. **Redeploy**
    ```bash
    # If using Vercel with Git:
-   git add app/icon.png app/apple-icon.png
+   git add app/ public/
    git commit -m "Update branding"
    git push
 
-   # Vercel will auto-deploy
+   # Vercel will auto-deploy in 1-2 minutes
    ```
+
+4. **Clear cache on mobile**
+   - iPhone: Settings → Safari → Clear History
+   - Android: Chrome → Settings → Privacy → Clear cache
 
 #### **Option 2: Multiple Formats** (Best Practice)
 
