@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
 
 const updateLLMSchema = z.object({
   llm_id: z.string().min(1, "LLM ID required").max(100),
@@ -10,7 +11,7 @@ const updateLLMSchema = z.object({
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient();
-  
+
   try {
     const body = await request.json();
     const { llm_id, general_prompt } = updateLLMSchema.parse(body);
@@ -23,9 +24,29 @@ export async function PATCH(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
+
     if (authError || !user) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
+    }
+
+    // 🛡️ RATE LIMITING - 10 requests per minute per user
+    const rateLimitResult = await rateLimit(`update-llm:${user.id}`, 10, 60);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests. Please wait a moment before trying again.',
+          retryAfter: Math.ceil((rateLimitResult.reset - Date.now()) / 1000),
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.reset.toString(),
+          }
+        }
+      );
     }
 
     // 🔒 AUTHORIZATION CHECK - Use service role (bypasses RLS, secure)
