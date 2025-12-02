@@ -6,80 +6,51 @@ This guide shows buyers how to easily customize the platform with their own bran
 
 ## 🖼️ **1. CHANGE LOGO & FAVICON**
 
-### **Quick Method (Recommended for Buyers)**
+### **Quick Method (2 Minutes)**
 
-Replace these files with your own branding:
+Replace just **2 FILES** for universal compatibility:
 
 ```
-app/
-├── icon.png          ← Your logo (512x512px recommended)
-└── apple-icon.png    ← iOS home screen icon (180x180px)
-
 public/
-├── icon.png          ← Same logo (for mobile compatibility)
-└── apple-touch-icon.png  ← iOS icon (for older devices)
+├── favicon.ico           ← Your favicon (all browsers)
+└── apple-touch-icon.png  ← iOS devices
 ```
-
-**💡 Why both locations?**
-- `app/` folder = Next.js 16 convention (desktop browsers)
-- `public/` folder = Legacy location (mobile browsers check here)
-- Having both ensures 100% compatibility across all devices!
 
 ### **Step-by-Step Instructions:**
 
-#### **Option 1: Simple Replacement** (Easiest - 2 Minutes)
+1. **Go to [Favicon.io](https://favicon.io/favicon-converter/)**
 
-1. **Create your logo** as a PNG file
-   - **Size**: 512x512 pixels (square)
-   - **Format**: PNG with transparent background
-   - **Name**: Save as `your-logo.png`
+2. **Upload your logo** (PNG, 512x512px recommended)
 
-2. **Replace in ALL locations** (important for mobile!)
+3. **Click "Download"** - you'll get a ZIP file
+
+4. **Extract the ZIP** - you'll see multiple files
+
+5. **Copy ONLY these 2 files to `public/` folder:**
    ```bash
-   # Copy your logo to all 4 locations:
-   cp your-logo.png app/icon.png
-   cp your-logo.png app/apple-icon.png
-   cp your-logo.png public/icon.png
-   cp your-logo.png public/apple-touch-icon.png
+   # On Mac/Linux:
+   cp ~/Downloads/favicon_io/favicon.ico public/favicon.ico
+   cp ~/Downloads/favicon_io/apple-touch-icon.png public/apple-touch-icon.png
    ```
 
    **Or on Windows:**
    ```batch
-   copy your-logo.png app\icon.png
-   copy your-logo.png app\apple-icon.png
-   copy your-logo.png public\icon.png
-   copy your-logo.png public\apple-touch-icon.png
+   copy C:\Users\YourName\Downloads\favicon_io\favicon.ico public\favicon.ico
+   copy C:\Users\YourName\Downloads\favicon_io\apple-touch-icon.png public\apple-touch-icon.png
    ```
 
-3. **Redeploy**
+6. **Deploy:**
    ```bash
-   # If using Vercel with Git:
-   git add app/ public/
-   git commit -m "Update branding"
+   git add public/
+   git commit -m "Update favicon"
    git push
-
-   # Vercel will auto-deploy in 1-2 minutes
    ```
 
-4. **Clear cache on mobile**
-   - iPhone: Settings → Safari → Clear History
-   - Android: Chrome → Settings → Privacy → Clear cache
+7. **Clear cache:**
+   - Desktop: Ctrl+F5 (hard refresh)
+   - Mobile: Settings → Clear browser cache
 
-#### **Option 2: Multiple Formats** (Best Practice)
-
-For maximum browser compatibility, add these files to `app/`:
-
-```
-app/
-├── icon.png              ← 512x512px - Main favicon
-├── apple-icon.png        ← 180x180px - iOS home screen
-├── favicon.ico           ← 32x32px - Legacy browsers
-└── icon.svg              ← Vector - Scalable (optional)
-```
-
-**To generate all sizes:**
-- Use [favicon.io](https://favicon.io/) - Upload your logo, download all sizes
-- Or use [RealFaviconGenerator](https://realfavicongenerator.net/)
+**That's it! Works on all browsers and devices.** ✅
 
 ---
 
