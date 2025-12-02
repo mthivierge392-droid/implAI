@@ -10,6 +10,7 @@ import MinutesCounter from '@/components/MinutesCounter';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { MobileNav } from '@/components/mobile-nav';
 import { StripeBanner } from '@/components/StripeBanner';
+import { Footer } from '@/components/Footer';
 import { 
   LayoutDashboard, 
   Cpu, 
@@ -141,9 +142,12 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 bg-background">
-          {children}
-        </main>
+        <div className="flex-1 flex flex-col">
+          <main className="flex-1 p-4 md:p-8 bg-background">
+            {children}
+          </main>
+          <Footer />
+        </div>
       </div>
 
       {/* Mobile Navigation */}
