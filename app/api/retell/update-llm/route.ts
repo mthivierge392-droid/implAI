@@ -29,8 +29,8 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
     }
 
-    // 🛡️ RATE LIMITING - 2 requests per minute per user
-    const rateLimitResult = await rateLimit(`update-llm:${user.id}`, 2, 60);
+    // 🛡️ RATE LIMITING - 10 requests per minute per user
+    const rateLimitResult = await rateLimit(`update-llm:${user.id}`, 10, 60);
 
     if (!rateLimitResult.success) {
       return NextResponse.json(
