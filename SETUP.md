@@ -162,7 +162,7 @@ Save these IDs when you create agents.
    - **Name**: `AI Phone Minutes`
    - **Description**: `Additional minutes for AI phone calls`
    - **Pricing**: Choose **"Standard pricing"**
-   - **Price**: (e.g., $10.00 for 1000 minutes)
+   - **Price**: (e.g., $25.00 for 1000 minutes)
    - **Billing period**: One-time
 4. Click **"Save product"**
 
@@ -193,9 +193,58 @@ This is your `NEXT_PUBLIC_STRIPE_PAYMENT_LINK`
 
 ---
 
-## ⚙️ Part 4: Configure Your Application
+## 🔴 Part 4: Upstash Redis Setup (Rate Limiting)
 
-### Step 4.1: Install Dependencies
+**Why this is needed**: Protects your API from spam and DoS attacks by limiting how many requests each user can make per minute.
+
+### Step 4.1: Create Upstash Account
+
+1. Go to [https://upstash.com/](https://upstash.com/)
+2. Click **"Get Started"** or **"Sign Up"**
+3. Sign up with:
+   - Email (recommended)
+   - Or GitHub/Google
+4. Verify your email if required
+
+### Step 4.2: Create Redis Database
+
+1. After logging in, click **"Create Database"**
+2. Fill in the form:
+   - **Name**: `ai-phone-ratelimit` (or any name you prefer)
+   - **Type**: Select **"Regional"**
+   - **Region**: Choose closest to your users (e.g., `us-east-1` for US East Coast)
+   - **Eviction**: **Enable** (recommended - automatically cleans old data)
+   - **TLS**: Enabled (default - leave checked)
+3. Click **"Create"**
+
+Wait 10-15 seconds for provisioning.
+
+### Step 4.3: Get Your Credentials
+
+1. You'll be on the database details page
+2. Scroll down to the **"REST API"** section
+3. You'll see two values:
+
+| Field | Example | Environment Variable |
+|-------|---------|---------------------|
+| **UPSTASH_REDIS_REST_URL** | `https://your-db.upstash.io` | Copy this |
+| **UPSTASH_REDIS_REST_TOKEN** | `AaoJAAInc...` | Copy this |
+
+4. **Copy both values** - you'll need them in the next step
+
+**What this does**:
+- Creates a serverless Redis database
+- Used to track API request counts per user
+- Automatically resets every 60 seconds
+- Free tier: 10,000 commands/day (more than enough for development)
+
+✅ **Upstash Redis setup complete!**
+
+---
+
+## ⚙️ Part 5: Configure Your Application
+
+### Step 5.1: Install Dependencies
 
 ```bash
 # Navigate to your project folder
@@ -207,7 +256,7 @@ npm install
 
 Wait for installation to complete (2-3 minutes).
 
-### Step 4.2: Create Environment File
+### Step 5.2: Create Environment File
 
 ```bash
 # Copy the example file
@@ -218,7 +267,7 @@ cp .env.example .env.local
 1. Copy `.env.example`
 2. Rename the copy to `.env.local`
 
-### Step 4.3: Fill in Environment Variables
+### Step 5.3: Fill in Environment Variables
 
 Open `.env.local` in your code editor and fill in:
 
@@ -236,6 +285,12 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 RETELL_API_KEY=your-retell-api-key-here
 
 # ============================================
+# UPSTASH REDIS (from Part 4)
+# ============================================
+UPSTASH_REDIS_REST_URL=https://your-database-url.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-upstash-token-here
+
+# ============================================
 # WEBHOOK SECURITY (generate new random string)
 # ============================================
 CRON_SECRET=your-random-32-character-secret
@@ -247,7 +302,7 @@ NEXT_PUBLIC_SUPPORT_EMAIL=support@yourdomain.com
 NEXT_PUBLIC_STRIPE_PAYMENT_LINK=https://buy.stripe.com/your-link
 ```
 
-### Step 4.4: Generate CRON_SECRET
+### Step 5.4: Generate CRON_SECRET
 
 **On Mac/Linux:**
 ```bash
@@ -268,9 +323,9 @@ Copy the output and paste as your `CRON_SECRET`.
 
 ---
 
-## 🚀 Part 5: Run Your Application
+## 🚀 Part 6: Run Your Application
 
-### Step 5.1: Start Development Server
+### Step 6.1: Start Development Server
 
 ```bash
 npm run dev
@@ -285,12 +340,12 @@ You should see:
   - Local:        http://localhost:3000
 ```
 
-### Step 5.2: Open in Browser
+### Step 6.2: Open in Browser
 
 1. Open [http://localhost:3000](http://localhost:3000)
 2. You should see the login page
 
-### Step 5.3: Login
+### Step 6.3: Login
 
 1. Enter the email and password you created in Part 1, Step 1.5
 2. Click **"Sign In"**

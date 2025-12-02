@@ -28,6 +28,8 @@ A professional, production-ready SaaS platform for monitoring and managing AI ph
 ### 🔐 Enterprise Security
 - Supabase authentication with Row Level Security (RLS)
 - Secure API endpoints with webhook validation
+- Rate limiting with Upstash Redis (prevents DoS attacks)
+- XSS protection on all user inputs
 - Environment variable validation on startup
 - Service role isolation for admin operations
 
@@ -63,6 +65,7 @@ A professional, production-ready SaaS platform for monitoring and managing AI ph
 - **Backend**: Next.js API Routes, Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
 - **Real-time**: Supabase Realtime
+- **Rate Limiting**: Upstash Redis
 - **Payments**: Stripe (Payment Links)
 - **AI Phone**: Retell AI
 - **Deployment**: Vercel
@@ -78,9 +81,10 @@ Before you begin, ensure you have:
 2. **npm** or **yarn** package manager
 3. **Supabase Account** - [Sign up](https://supabase.com/)
 4. **Retell AI Account** - [Sign up](https://retellai.com/)
-5. **Stripe Account** - [Sign up](https://stripe.com/)
-6. **Vercel Account** (for deployment) - [Sign up](https://vercel.com/)
-7. **Git** installed on your machine
+5. **Upstash Account** - [Sign up](https://upstash.com/) (Free tier available)
+6. **Stripe Account** - [Sign up](https://stripe.com/)
+7. **Vercel Account** (for deployment) - [Sign up](https://vercel.com/)
+8. **Git** installed on your machine
 
 ---
 
@@ -146,7 +150,32 @@ npm install
 3. **Get your email for support**:
    - Decide on a support email → This is `NEXT_PUBLIC_SUPPORT_EMAIL`
 
-### Step 5: Configure Environment Variables
+### Step 5: Set Up Upstash Redis (Rate Limiting)
+
+**Why needed**: Protects your API from abuse and DoS attacks by limiting requests per user.
+
+1. **Create Upstash account**:
+   - Go to [https://upstash.com/](https://upstash.com/)
+   - Sign up (free tier available)
+
+2. **Create a Redis database**:
+   - Click **"Create Database"**
+   - Choose:
+     - **Name**: `ai-phone-agents-ratelimit` (or any name)
+     - **Type**: Regional
+     - **Region**: Choose closest to your users
+     - **Eviction**: Enable (recommended for automatic cleanup)
+   - Click **"Create"**
+
+3. **Get your credentials**:
+   - In the database details page, scroll to **"REST API"** section
+   - Copy these two values:
+     - **UPSTASH_REDIS_REST_URL** → Your database URL
+     - **UPSTASH_REDIS_REST_TOKEN** → Your access token
+
+**What this does**: Enables rate limiting (10 requests per minute per user) on sensitive API endpoints to prevent spam and DoS attacks.
+
+### Step 6: Configure Environment Variables
 
 1. **Copy the example file**:
 ```bash
@@ -163,6 +192,10 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
 
 # Retell AI Configuration
 RETELL_API_KEY=your-retell-api-key-here
+
+# Upstash Redis (Rate Limiting)
+UPSTASH_REDIS_REST_URL=https://your-database-url.upstash.io
+UPSTASH_REDIS_REST_TOKEN=your-upstash-token-here
 
 # Webhook Security (generate with: openssl rand -base64 32)
 CRON_SECRET=your-random-32-character-secret-here
@@ -181,7 +214,7 @@ openssl rand -base64 32
 [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
 ```
 
-### Step 6: Run Development Server
+### Step 7: Run Development Server
 
 ```bash
 npm run dev
@@ -189,7 +222,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Step 7: Create Your First User
+### Step 8: Create Your First User
 
 1. **Sign up via Supabase**:
    - Go to Supabase Dashboard → Authentication → Users
