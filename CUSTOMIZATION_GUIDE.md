@@ -81,7 +81,7 @@ The footer is **sticky at the bottom** and appears on:
 
 ## 🎯 Client Onboarding Checklist
 
-When setting up for a new client:
+When setting up:
 
 - [ ] **Update `config/site.ts`**:
   - [ ] Company name

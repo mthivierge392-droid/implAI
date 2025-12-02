@@ -4,8 +4,8 @@
 export const siteConfig = {
   // Company Information
   company: {
-    name: "ImplAI",
-    supportEmail: "mthivierge392@gmail.com",
+    name: "AI Phone Agents Dashboard",
+    supportEmail: "support@example.com",
   },
 
   // Legal Information
