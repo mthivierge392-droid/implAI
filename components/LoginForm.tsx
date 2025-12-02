@@ -135,7 +135,7 @@ export default function LoginForm() {
       </Button>
 
       <a
-        href={`mailto:${APP_CONFIG.supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account`}
+        href={`mailto:${APP_CONFIG.supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account&body=Hi%2C%0A%0AI%20would%20like%20to%20request%20access%20to%20the%20AI%20Phone%20Agents%20Dashboard.%0A%0AMy%20details%3A%0AName%3A%20%0AEmail%3A%20%0ACompany%3A%20%0A%0AThank%20you!`}
         className={cn(
           "w-full gap-2 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-medium text-foreground",
           "hover:bg-accent hover:text-accent-foreground transition-colors",
