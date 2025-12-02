@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { sanitizeHtml, sanitizePhoneNumber } from '@/lib/utils';
+import { sanitizePhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CallHistory } from '@/lib/supabase';
 import { Search, ChevronLeft, ChevronRight, X, PhoneIncoming, Filter } from 'lucide-react';
@@ -431,9 +431,7 @@ export default function CallHistoryPage() {
                 <h4 className="font-semibold text-foreground mb-3">Transcript</h4>
                 <div className="bg-muted rounded-lg p-4">
                   <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
-                    {selectedCall.transcript 
-                      ? <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCall.transcript) }} />
-                      : 'No transcript available for this call.'}
+                    {selectedCall.transcript || 'No transcript available for this call.'}
                   </p>
                 </div>
               </div>
