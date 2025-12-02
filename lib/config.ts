@@ -13,6 +13,6 @@ export const APP_CONFIG = {
   urls: {
     // Stripe payment link for buying minutes
     // Get this from: Stripe Dashboard → Products → Payment Links
-    stripePayment: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || ''
+    stripePayment: process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || 'https://buy.stripe.com/your-payment-link-here'
   }
 } as const;
