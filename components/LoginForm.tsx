@@ -56,13 +56,6 @@ export default function LoginForm() {
     }
   };
 
-  const handleSupportClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.location.href = `mailto:${APP_CONFIG.supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account`;
-    showToast('Opening email client...', 'info');
-  };
-
   return (
     <form onSubmit={handleLogin} className="space-y-5">
       {error && (
@@ -84,6 +77,8 @@ export default function LoginForm() {
           <input
             id="email"
             type="email"
+            name="email"
+            autoComplete="email"
             placeholder="you@example.com"
             value={email}
             onChange={(e) => {
@@ -110,6 +105,8 @@ export default function LoginForm() {
           <input
             id="password"
             type="password"
+            name="password"
+            autoComplete="current-password"
             placeholder="••••••••"
             value={password}
             onChange={(e) => {
@@ -137,15 +134,18 @@ export default function LoginForm() {
         Sign In
       </Button>
 
-      <button 
-        type="button"
-        className="w-full gap-2 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer disabled:cursor-not-allowed"
-        onClick={handleSupportClick}
-        disabled={loading}
+      <a
+        href={`mailto:${APP_CONFIG.supportEmail}?subject=Request%20for%20AI%20Monitoring%20Account`}
+        className={cn(
+          "w-full gap-2 inline-flex items-center justify-center rounded-lg border border-input bg-background px-4 py-3 text-sm font-medium text-foreground",
+          "hover:bg-accent hover:text-accent-foreground transition-colors",
+          loading ? "cursor-not-allowed opacity-50 pointer-events-none" : "cursor-pointer"
+        )}
+        aria-disabled={loading}
       >
         <Mail size={18} />
         Contact us to create an account
-      </button>
+      </a>
     </form>
   );
 }

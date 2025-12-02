@@ -240,6 +240,37 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 3. **Login** at [http://localhost:3000](http://localhost:3000)
 
+### Step 9: Customize Company Branding (Optional)
+
+Easily customize the company name, support email, and legal information:
+
+1. **Edit** `config/site.ts`:
+```typescript
+export const siteConfig = {
+  company: {
+    name: "Your Company Name",           // ← Change this
+    supportEmail: "support@example.com", // ← Change this
+  },
+  legal: {
+    jurisdiction: "United States",       // ← Change this
+    lastUpdated: "2024-01-01",          // ← Change this
+  },
+  urls: {
+    website: "https://example.com",      // ← Change this
+    privacy: "/legal/privacy",           // Keep as is
+    terms: "/legal/terms",               // Keep as is
+  },
+};
+```
+
+2. This automatically updates:
+   - Footer copyright text
+   - Privacy Policy page
+   - Terms of Service page
+   - All branding throughout the platform
+
+3. See `config/README.md` for detailed instructions
+
 ---
 
 ## 📦 Deployment to Vercel

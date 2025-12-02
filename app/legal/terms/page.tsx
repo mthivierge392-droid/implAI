@@ -1,9 +1,10 @@
 // app/legal/terms/page.tsx
 import { Metadata } from 'next';
+import { siteConfig } from '@/config/site';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | AI Phone Agents Dashboard',
-  description: 'Terms of Service for AI Phone Agents Dashboard',
+  title: `Terms of Service | ${siteConfig.company.name}`,
+  description: `Terms of Service for ${siteConfig.company.name}`,
 };
 
 export default function TermsOfServicePage() {
@@ -20,7 +21,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">1. Acceptance of Terms</h2>
             <p>
-              By accessing or using this AI Phone Agents Dashboard, you agree to be bound by these Terms of Service.
+              By accessing or using {siteConfig.company.name}, you agree to be bound by these Terms of Service.
               If you do not agree, do not use the Service.
             </p>
           </section>
@@ -156,13 +157,16 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">11. Contact</h2>
             <p>
-              For questions about these Terms, please contact the service administrator.
+              For questions about these Terms, please contact us at{' '}
+              <a href={`mailto:${siteConfig.company.supportEmail}`} className="text-primary hover:underline">
+                {siteConfig.company.supportEmail}
+              </a>
             </p>
           </section>
 
           <div className="mt-12 p-6 bg-primary/10 border border-primary/20 rounded-lg">
             <p className="text-sm">
-              <strong>By using this AI Phone Agents Dashboard, you acknowledge that you have read and agree to these Terms of Service.</strong>
+              <strong>By using {siteConfig.company.name}, you acknowledge that you have read and agree to these Terms of Service.</strong>
             </p>
           </div>
         </div>

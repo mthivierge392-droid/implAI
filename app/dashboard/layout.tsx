@@ -77,7 +77,7 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Stripe Payment Banner - ALWAYS VISIBLE */}
       <StripeBanner />
 
@@ -97,9 +97,9 @@ export default function DashboardLayout({
 
             <div className="h-6 w-px bg-border hidden md:block" />
 
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleLogout}
               className="gap-2"
             >
@@ -110,14 +110,14 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1">
         {/* Desktop Sidebar - Enhanced Hover Effects */}
         <aside className="w-64 border-r border-border bg-background hidden md:block">
           <nav className="p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
-              
+
               return (
                 <Link
                   key={item.href}
@@ -142,8 +142,8 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 p-4 md:p-8 bg-background">
+        <div className="flex-1 flex flex-col min-h-0">
+          <main className="flex-1 overflow-auto p-4 md:p-8 bg-background">
             {children}
           </main>
           <Footer />

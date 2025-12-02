@@ -1,9 +1,10 @@
 // app/legal/privacy/page.tsx
 import { Metadata } from 'next';
+import { siteConfig } from '@/config/site';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | AI Phone Agents Dashboard',
-  description: 'Privacy Policy for AI Phone Agents Dashboard',
+  title: `Privacy Policy | ${siteConfig.company.name}`,
+  description: `Privacy Policy for ${siteConfig.company.name}`,
 };
 
 export default function PrivacyPolicyPage() {
@@ -21,7 +22,7 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
             <p>
               This Privacy Policy explains how we collect, use, and protect your personal information
-              when you use our AI Phone Agents Dashboard service.
+              when you use our {siteConfig.company.name} service.
             </p>
           </section>
 
@@ -194,7 +195,10 @@ export default function PrivacyPolicyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold mb-4">11. Contact Us</h2>
             <p>
-              For privacy questions or concerns, please contact the service administrator.
+              For privacy questions or concerns, please contact us at{' '}
+              <a href={`mailto:${siteConfig.company.supportEmail}`} className="text-primary hover:underline">
+                {siteConfig.company.supportEmail}
+              </a>
             </p>
           </section>
 
