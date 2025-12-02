@@ -40,6 +40,17 @@ export function validateEnv() {
       whereToFind: 'Generate with: openssl rand -base64 32',
       securityWarning: '⚠️  Used to protect webhook endpoints from unauthorized access',
     },
+    {
+      key: 'UPSTASH_REDIS_REST_URL',
+      description: 'Upstash Redis Database URL (Rate Limiting)',
+      whereToFind: 'Upstash Dashboard → Your Database → REST API section',
+    },
+    {
+      key: 'UPSTASH_REDIS_REST_TOKEN',
+      description: 'Upstash Redis Access Token (Rate Limiting)',
+      whereToFind: 'Upstash Dashboard → Your Database → REST API section',
+      securityWarning: '⚠️  Used to prevent API abuse and DoS attacks',
+    },
   ];
 
   // Check for missing variables
@@ -81,6 +92,17 @@ export function validateEnv() {
         `   Get the correct value from: Supabase Dashboard → Project Settings → API`
       );
     }
+  }
+
+  // Validate Upstash URL format
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  if (upstashUrl && !upstashUrl.startsWith('https://')) {
+    throw new Error(
+      `❌ INVALID UPSTASH URL FORMAT\n` +
+      `   Current value: ${upstashUrl}\n` +
+      `   Expected format: https://your-database.upstash.io\n` +
+      `   Get the correct value from: Upstash Dashboard → Your Database → REST API`
+    );
   }
 
   // All validations passed
