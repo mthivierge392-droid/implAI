@@ -410,7 +410,7 @@ fiverproduct/
 1. Check if `trigger_deduct_minutes` trigger exists in database
 2. Verify `call_history` table insert succeeded
 3. Check Supabase logs for trigger errors
-4. Ensure Realtime is enabled for `clients` table
+4. Ensure Realtime is enabled for `clients`table
 
 ### Stripe Payment Link Not Working
 
