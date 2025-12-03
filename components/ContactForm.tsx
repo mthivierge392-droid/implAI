@@ -69,8 +69,8 @@ export default function ContactForm({ onClose }: ContactFormProps) {
   if (!mounted) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black flex items-center justify-center p-6 z-50" onClick={onClose}>
-      <div className="bg-card border-2 border-border rounded-2xl shadow-2xl w-full max-w-4xl p-12 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-6 z-50" onClick={onClose}>
+      <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl p-12 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Close button */}
         <button
           onClick={onClose}
