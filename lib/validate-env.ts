@@ -51,6 +51,12 @@ export function validateEnv() {
       whereToFind: 'Upstash Dashboard → Your Database → REST API section',
       securityWarning: '⚠️  Used to prevent API abuse and DoS attacks',
     },
+    {
+      key: 'RESEND_API_KEY',
+      description: 'Resend Email API Key (Contact Form)',
+      whereToFind: 'Resend Dashboard → API Keys (https://resend.com/)',
+      securityWarning: '⚠️  Used to send contact form submissions via email',
+    },
   ];
 
   // Check for missing variables
