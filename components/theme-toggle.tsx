@@ -1,4 +1,4 @@
-// components/theme-toggle.tsx
+//components/theme-toggle.tsx
 'use client';
 
 import * as React from 'react';
