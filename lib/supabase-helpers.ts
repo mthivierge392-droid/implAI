@@ -114,4 +114,67 @@ export async function addMinutesToClient(
   return newMinutesTotal;
 }
 
+/**
+ * Get user's agent info (real agent ID and Twilio number)
+ * Returns null if user doesn't have an agent with a Twilio number configured
+ *
+ * @param userId - The user's ID from auth.users
+ * @returns Object with retell_agent_id and twilio_number, or null if not found
+ */
+export async function getUserAgentInfo(userId: string): Promise<{
+  retell_agent_id: string;
+  twilio_number: string;
+} | null> {
+  const { data: agent, error } = await supabaseAdmin
+    .from('agents')
+    .select('retell_agent_id, twilio_number')
+    .eq('client_id', userId)
+    .not('twilio_number', 'is', null)
+    .single();
+
+  if (error || !agent || !agent.twilio_number) {
+    console.log(`ℹ️ No agent with Twilio number found for user_id: ${userId}`);
+    return null;
+  }
+
+  return {
+    retell_agent_id: agent.retell_agent_id,
+    twilio_number: agent.twilio_number,
+  };
+}
+
+/**
+ * Create a webhook job to restore phone number to real agent
+ * This is triggered when a user purchases minutes
+ *
+ * @param userId - The user's ID from auth.users
+ * @param agentId - The real agent ID to restore
+ * @param phoneNumber - The Twilio number to restore
+ * @returns true if job was created, false otherwise
+ */
+export async function createRestoreNumberJob(
+  userId: string,
+  agentId: string,
+  phoneNumber: string
+): Promise<boolean> {
+  const { error } = await supabaseAdmin.from('webhook_jobs').insert({
+    client_id: userId,
+    job_type: 'restore_number',
+    status: 'pending',
+    payload: {
+      phone_number: phoneNumber,
+      real_agent_id: agentId,
+      triggered_by: 'stripe_purchase',
+    },
+  });
+
+  if (error) {
+    console.error('❌ Failed to create restore_number job:', error);
+    return false;
+  }
+
+  console.log(`✅ Created restore_number job for ${phoneNumber} → ${agentId}`);
+  return true;
+}
+
 export { supabaseAdmin };

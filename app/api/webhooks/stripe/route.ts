@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { MINUTE_PACKAGES, validateStripeConfig } from '@/lib/stripe-config';
-import { findUserIdByEmail, addMinutesToClient } from '@/lib/supabase-helpers';
+import { findUserIdByEmail, addMinutesToClient, getUserAgentInfo, createRestoreNumberJob } from '@/lib/supabase-helpers';
 
 // Validate configuration on startup
 if (!validateStripeConfig()) {
@@ -136,6 +136,23 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     `✅ Successfully added ${totalMinutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
+  // Step 3: Check if user has a Twilio number and restore it to real agent
+  const agentInfo = await getUserAgentInfo(userId);
+
+  if (agentInfo) {
+    const jobCreated = await createRestoreNumberJob(
+      userId,
+      agentInfo.retell_agent_id,
+      agentInfo.twilio_number
+    );
+
+    if (jobCreated) {
+      console.log(`📞 Queued phone number restoration: ${agentInfo.twilio_number} → ${agentInfo.retell_agent_id}`);
+    }
+  } else {
+    console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');
+  }
+
   // Optional: Log the transaction for audit purposes
   await logTransaction(userId, totalMinutesToAdd, session.id, session.amount_total || 0);
 }
@@ -184,6 +201,23 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   console.log(
     `✅ Successfully added ${minutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
+
+  // Check if user has a Twilio number and restore it to real agent
+  const agentInfo = await getUserAgentInfo(userId);
+
+  if (agentInfo) {
+    const jobCreated = await createRestoreNumberJob(
+      userId,
+      agentInfo.retell_agent_id,
+      agentInfo.twilio_number
+    );
+
+    if (jobCreated) {
+      console.log(`📞 Queued phone number restoration: ${agentInfo.twilio_number} → ${agentInfo.retell_agent_id}`);
+    }
+  } else {
+    console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');
+  }
 
   await logTransaction(userId, minutesToAdd, paymentIntent.id, paymentIntent.amount);
 }
