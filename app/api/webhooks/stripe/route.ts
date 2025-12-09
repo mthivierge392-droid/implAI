@@ -1,8 +1,8 @@
 // app/api/webhooks/stripe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
 import { MINUTE_PACKAGES, validateStripeConfig } from '@/lib/stripe-config';
+import { findUserIdByEmail, addMinutesToClient } from '@/lib/supabase-helpers';
 
 // Validate configuration on startup
 if (!validateStripeConfig()) {
@@ -13,12 +13,6 @@ if (!validateStripeConfig()) {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-11-17.clover',
 });
-
-// Initialize Supabase admin client (bypasses RLS for admin operations)
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -122,47 +116,20 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // Step 1: Find user_id from auth.users table by email
-  const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+  // Step 1: Find user_id from auth.users table by email (optimized query)
+  const userId = await findUserIdByEmail(customerEmail);
 
-  if (authError) {
-    console.error('❌ Error fetching auth users:', authError);
-    return;
-  }
-
-  const authUser = authUsers.users.find(u => u.email === customerEmail);
-
-  if (!authUser) {
+  if (!userId) {
     console.error('❌ User not found in auth for email:', customerEmail);
     return;
   }
 
-  const userId = authUser.id;
-  console.log(`✅ Found user in auth: ${userId} for email: ${customerEmail}`);
+  // Step 2: Add minutes to client's account
+  const newMinutesTotal = await addMinutesToClient(userId, totalMinutesToAdd);
 
-  // Step 2: Get current minutes from clients table
-  const { data: client, error: clientError } = await supabaseAdmin
-    .from('clients')
-    .select('minutes_included')
-    .eq('user_id', userId)
-    .single();
-
-  if (clientError || !client) {
-    console.error('❌ Client not found for user_id:', userId);
-    return;
-  }
-
-  // Step 3: Update user's minutes in clients table
-  const newMinutesTotal = client.minutes_included + totalMinutesToAdd;
-
-  const { error: updateError } = await supabaseAdmin
-    .from('clients')
-    .update({ minutes_included: newMinutesTotal })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('❌ Failed to update minutes:', updateError);
-    throw updateError;
+  if (newMinutesTotal === null) {
+    console.error('❌ Failed to update minutes for user_id:', userId);
+    throw new Error('Failed to update minutes');
   }
 
   console.log(
@@ -198,45 +165,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
   const minutesToAdd = MINUTE_PACKAGES[priceId];
 
-  // Find user_id from auth.users table by email
-  const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+  // Find user_id from auth.users table by email (optimized query)
+  const userId = await findUserIdByEmail(customerEmail);
 
-  if (authError) {
-    console.error('❌ Error fetching auth users:', authError);
-    return;
-  }
-
-  const authUser = authUsers.users.find(u => u.email === customerEmail);
-
-  if (!authUser) {
+  if (!userId) {
     console.error('❌ User not found in auth for email:', customerEmail);
     return;
   }
 
-  const userId = authUser.id;
+  // Add minutes to client's account
+  const newMinutesTotal = await addMinutesToClient(userId, minutesToAdd);
 
-  // Get current minutes from clients table
-  const { data: client, error: clientError } = await supabaseAdmin
-    .from('clients')
-    .select('minutes_included')
-    .eq('user_id', userId)
-    .single();
-
-  if (clientError || !client) {
-    console.error('❌ Client not found for user_id:', userId);
-    return;
-  }
-
-  const newMinutesTotal = client.minutes_included + minutesToAdd;
-
-  const { error: updateError } = await supabaseAdmin
-    .from('clients')
-    .update({ minutes_included: newMinutesTotal })
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('❌ Failed to update minutes:', updateError);
-    throw updateError;
+  if (newMinutesTotal === null) {
+    console.error('❌ Failed to update minutes for user_id:', userId);
+    throw new Error('Failed to update minutes');
   }
 
   console.log(
