@@ -8,6 +8,7 @@ import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ContactForm from '@/components/ContactForm';
+import { siteConfig } from '@/config/site';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -81,7 +82,7 @@ export default function LoginForm() {
               type="email"
               name="email"
               autoComplete="email"
-              placeholder="you@example.com"
+              placeholder={siteConfig.login.emailPlaceholder}
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -109,7 +110,7 @@ export default function LoginForm() {
               type="password"
               name="password"
               autoComplete="current-password"
-              placeholder="••••••••"
+              placeholder={siteConfig.login.passwordPlaceholder}
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
@@ -133,7 +134,7 @@ export default function LoginForm() {
           disabled={loading}
         >
           <LogIn size={18} />
-          Sign In
+          {siteConfig.login.loginButton}
         </Button>
 
         <Button
@@ -144,7 +145,7 @@ export default function LoginForm() {
           className="w-full"
         >
           <Mail size={18} />
-          Contact us to create an account
+          {siteConfig.login.contactButton}
         </Button>
       </form>
 

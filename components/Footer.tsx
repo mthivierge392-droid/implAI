@@ -20,14 +20,14 @@ export function Footer() {
               href={siteConfig.urls.privacy}
               className="text-muted-foreground hover:text-foreground transition-colors hover:underline"
             >
-              Privacy Policy
+              {siteConfig.footer.privacyLabel}
             </Link>
             <span className="text-muted-foreground">•</span>
             <Link
               href={siteConfig.urls.terms}
               className="text-muted-foreground hover:text-foreground transition-colors hover:underline"
             >
-              Terms of Service
+              {siteConfig.footer.termsLabel}
             </Link>
           </div>
         </div>

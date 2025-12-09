@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -115,14 +116,14 @@ export default function AgentsPage() {
         .eq('id', agent.id);
 
       if (error) throw error;
-      showToast('Agent name updated', 'success');
+      showToast(siteConfig.dashboardAgents.nameUpdated, 'success');
     } catch (error) {
       console.error('Error updating name:', error);
       // Revert on error
-      setAgents(prev => prev.map(a => 
+      setAgents(prev => prev.map(a =>
         a.id === agent.id ? { ...a, agent_name: originalName } : a
       ));
-      showToast('Failed to update name', 'error');
+      showToast(siteConfig.dashboardAgents.nameUpdateFailed, 'error');
     }
   };
 
@@ -144,8 +145,8 @@ export default function AgentsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setError('Not authenticated. Please login again.');
-        showToast('Not authenticated', 'error');
+        setError(siteConfig.dashboardAgents.errorNotAuthenticated);
+        showToast(siteConfig.dashboardAgents.errorNotAuthenticated, 'error');
         setSaving(false);
         return;
       }
@@ -177,14 +178,14 @@ export default function AgentsPage() {
         .eq('id', selectedAgent.id);
 
       setSelectedAgent(null);
-      showToast('Prompt updated successfully', 'success');
+      showToast(siteConfig.dashboardAgents.promptUpdated, 'success');
     } catch (error) {
       console.error('Error saving prompt:', error);
-      setAgents(prev => prev.map(a => 
+      setAgents(prev => prev.map(a =>
         a.id === selectedAgent.id ? { ...a, prompt: originalPrompt } : a
       ));
-      setError('Failed to save prompt. Please try again.');
-      showToast('Error saving prompt', 'error');
+      setError(siteConfig.dashboardAgents.errorSaveFailed);
+      showToast(siteConfig.dashboardAgents.promptUpdateFailed, 'error');
     } finally {
       setSaving(false);
     }
@@ -216,9 +217,9 @@ export default function AgentsPage() {
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
           <MessageSquare className="w-8 h-8 text-muted-foreground" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">No agents yet</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-2">{siteConfig.dashboardAgents.emptyStateTitle}</h2>
         <p className="text-muted-foreground text-sm max-w-md text-center">
-          Contact support to create your first AI agent and start making calls.
+          {siteConfig.dashboardAgents.emptyStateDescription}
         </p>
       </div>
     );
@@ -227,8 +228,8 @@ export default function AgentsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">My Agents</h1>
-        <p className="text-muted-foreground">Manage your AI agent configurations</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardAgents.title}</h1>
+        <p className="text-muted-foreground">{siteConfig.dashboardAgents.subtitle}</p>
       </div>
 
       <div className="grid gap-4">
@@ -262,19 +263,19 @@ export default function AgentsPage() {
                     <CardDescription className="font-mono text-xs">{agent.retell_agent_id}</CardDescription>
                   </div>
                 </div>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => handleEditPrompt(agent)}
                   className="gap-2"
                 >
                   <Edit3 className="w-4 h-4" />
-                  Edit Prompt
+                  {siteConfig.dashboardAgents.editPromptButton}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex items-center gap-3">
-                <Badge 
+                <Badge
                   variant={hasMinutes ? "success" : "destructive"}
                   style={hasMinutes ? {
                     backgroundColor: 'rgba(34, 197, 94, 0.1)',
@@ -286,7 +287,7 @@ export default function AgentsPage() {
                     borderColor: 'rgba(239, 68, 68, 0.3)'
                   }}
                 >
-                  {hasMinutes ? "Active" : "Paused"}
+                  {hasMinutes ? siteConfig.dashboardAgents.statusActive : siteConfig.dashboardAgents.statusPaused}
                 </Badge>
                 
                 {/* GLOW EFFECT - GREEN FOR ACTIVE, RED FOR PAUSED */}
@@ -338,7 +339,7 @@ export default function AgentsPage() {
           >
             <div className="flex items-center justify-between p-6 border-b border-border">
               <div>
-                <h3 className="text-xl font-semibold text-card-foreground">Edit Prompt</h3>
+                <h3 className="text-xl font-semibold text-card-foreground">{siteConfig.dashboardAgents.modalTitle}</h3>
                 <p className="text-sm text-muted-foreground">{selectedAgent.agent_name}</p>
               </div>
               <Button 
@@ -360,7 +361,7 @@ export default function AgentsPage() {
                   setEditingPrompt(e.target.value);
                   if (error) setError(null);
                 }}
-                placeholder="Enter your agent's prompt..."
+                placeholder={siteConfig.dashboardAgents.modalPlaceholder}
                 className="w-full h-64 p-4 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-ring focus:border-ring resize-none"
               />
               
@@ -372,15 +373,15 @@ export default function AgentsPage() {
             </div>
 
             <div className="flex gap-3 p-6 border-t border-border bg-muted/50">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSelectedAgent(null);
                   setError(null);
-                }} 
+                }}
                 className="flex-1"
               >
-                Cancel
+                {siteConfig.dashboardAgents.modalCancel}
               </Button>
               <Button
                 onClick={handleSavePrompt}
@@ -390,9 +391,9 @@ export default function AgentsPage() {
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Saving...
+                    {siteConfig.dashboardAgents.modalSaving}
                   </>
-                ) : 'Save Prompt'}
+                ) : siteConfig.dashboardAgents.modalSave}
               </Button>
             </div>
           </div>

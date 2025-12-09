@@ -4,6 +4,7 @@
 import LoginForm from '@/components/LoginForm';
 import { Footer } from '@/components/Footer';
 import { Phone, Shield, Zap } from 'lucide-react';
+import { siteConfig } from '@/config/site';
 
 export default function Home() {
   return (
@@ -19,9 +20,9 @@ export default function Home() {
                 <Phone className="w-8 h-8 text-primary" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
+                <h1 className="text-2xl font-bold text-foreground">{siteConfig.login.title}</h1>
                 <p className="text-sm text-muted-foreground">
-                  Professional AI phone agent monitoring
+                  {siteConfig.login.subtitle}
                 </p>
               </div>
             </div>
@@ -31,15 +32,15 @@ export default function Home() {
           <div className="mt-6 grid grid-cols-3 gap-4 text-xs text-muted-foreground">
             <div className="flex flex-col items-center gap-1">
               <Shield className="w-4 h-4" />
-              <span>Secure</span>
+              <span>{siteConfig.login.features.feature1}</span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <Zap className="w-4 h-4" />
-              <span>Real-time</span>
+              <span>{siteConfig.login.features.feature2}</span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <Phone className="w-4 h-4" />
-              <span>Enterprise</span>
+              <span>{siteConfig.login.features.feature3}</span>
             </div>
           </div>
         </div>

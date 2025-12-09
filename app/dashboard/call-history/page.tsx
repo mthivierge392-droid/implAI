@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_SEARCH_LENGTH = 20;
@@ -167,7 +168,7 @@ export default function CallHistoryPage() {
                     };
                   }
                 );
-                showToast(`New call: ${newCall.phone_number}`, 'info');
+                showToast(siteConfig.dashboardCallHistory.newCall.replace('{phone}', newCall.phone_number), 'info');
               }
             }
           }
@@ -196,7 +197,7 @@ export default function CallHistoryPage() {
 
   const handleSearch = () => {
     if (searchPhone.length > MAX_SEARCH_LENGTH) {
-      showToast(`Search too long (max ${MAX_SEARCH_LENGTH} characters)`, 'error');
+      showToast(siteConfig.dashboardCallHistory.searchTooLong.replace('{max}', MAX_SEARCH_LENGTH.toString()), 'error');
       return;
     }
     setSearchPhone(searchInput);
@@ -214,7 +215,7 @@ export default function CallHistoryPage() {
   const handleInputChange = (value: string) => {
     const sanitized = sanitizePhoneNumber(value);
     if (sanitized.length > MAX_SEARCH_LENGTH) {
-      showToast(`Max ${MAX_SEARCH_LENGTH} characters`, 'info');
+      showToast(siteConfig.dashboardCallHistory.searchMaxReached.replace('{max}', MAX_SEARCH_LENGTH.toString()), 'info');
     }
     setSearchInput(sanitized.substring(0, MAX_SEARCH_LENGTH));
   };
@@ -240,15 +241,15 @@ export default function CallHistoryPage() {
     };
 
     const label = {
-      completed: 'Completed',
-      failed: 'Failed',
-      no_answer: 'No Answer',
-      in_progress: 'In Progress',
+      completed: siteConfig.dashboardCallHistory.statusLabels.completed,
+      failed: siteConfig.dashboardCallHistory.statusLabels.failed,
+      no_answer: siteConfig.dashboardCallHistory.statusLabels.no_answer,
+      in_progress: siteConfig.dashboardCallHistory.statusLabels.in_progress,
     };
 
     return (
       <Badge variant={variant[status as keyof typeof variant] || 'outline'}>
-        {label[status as keyof typeof label] || status || 'Unknown'}
+        {label[status as keyof typeof label] || status || siteConfig.dashboardCallHistory.statusLabels.unknown}
       </Badge>
     );
   };
@@ -275,7 +276,7 @@ export default function CallHistoryPage() {
   if (!clientId) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
-        <p className="text-destructive">Error: Client not authenticated</p>
+        <p className="text-destructive">{siteConfig.dashboardCallHistory.errorNotAuthenticated}</p>
       </div>
     );
   }
@@ -283,8 +284,8 @@ export default function CallHistoryPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Call History</h1>
-        <p className="text-muted-foreground">Monitor your AI agents' calls in real-time</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardCallHistory.title}</h1>
+        <p className="text-muted-foreground">{siteConfig.dashboardCallHistory.subtitle}</p>
       </div>
 
       <Card>
@@ -294,7 +295,7 @@ export default function CallHistoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search phone number..."
+                placeholder={siteConfig.dashboardCallHistory.searchPlaceholder}
                 value={searchInput}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={handleKeyDown} // FIXED: Enter key triggers search
@@ -303,7 +304,7 @@ export default function CallHistoryPage() {
             </div>
             <Button onClick={handleSearch} className="gap-2">
               <Filter className="w-4 h-4" />
-              Search
+              {siteConfig.dashboardCallHistory.searchButton}
             </Button>
           </div>
         </CardHeader>
@@ -312,19 +313,19 @@ export default function CallHistoryPage() {
           {callsData?.calls.length === 0 ? (
             <div className="text-center py-8">
               <PhoneIncoming className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-foreground font-medium">No calls recorded</p>
-              <p className="text-muted-foreground text-sm mt-1">Calls will appear here automatically</p>
+              <p className="text-foreground font-medium">{siteConfig.dashboardCallHistory.emptyStateTitle}</p>
+              <p className="text-muted-foreground text-sm mt-1">{siteConfig.dashboardCallHistory.emptyStateDescription}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Date/Time</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Number</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Duration</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Actions</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.dateTime}</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.number}</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.status}</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.duration}</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.actions}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -346,13 +347,13 @@ export default function CallHistoryPage() {
                         {formatDuration(call.call_duration_seconds)}
                       </td>
                       <td className="py-3 px-4 text-sm">
-                        <Button 
-                          variant="link" 
+                        <Button
+                          variant="link"
                           size="sm"
                           onClick={() => setSelectedCall(call)}
                           className="p-0 h-auto font-medium"
                         >
-                          View transcript
+                          {siteConfig.dashboardCallHistory.viewTranscript}
                         </Button>
                       </td>
                     </tr>
@@ -366,7 +367,7 @@ export default function CallHistoryPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                Page {page + 1} of {totalPages || 1}
+                {siteConfig.dashboardCallHistory.pageLabel.replace('{current}', (page + 1).toString()).replace('{total}', (totalPages || 1).toString())}
               </p>
               <div className="flex gap-2">
                 <Button
@@ -376,7 +377,7 @@ export default function CallHistoryPage() {
                   disabled={page === 0}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  {siteConfig.dashboardCallHistory.previousButton}
                 </Button>
                 <Button
                   size="sm"
@@ -384,7 +385,7 @@ export default function CallHistoryPage() {
                   onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                 >
-                  Next
+                  {siteConfig.dashboardCallHistory.nextButton}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -405,7 +406,7 @@ export default function CallHistoryPage() {
           >
             <div className="flex items-center justify-between p-6 border-b border-border">
               <div>
-                <h3 className="text-xl font-semibold text-card-foreground">Call Details</h3>
+                <h3 className="text-xl font-semibold text-card-foreground">{siteConfig.dashboardCallHistory.modalTitle}</h3>
                 <p className="text-sm text-muted-foreground">
                   {sanitizePhoneNumber(selectedCall.phone_number)} • {formatDate(selectedCall.created_at)}
                 </p>
@@ -423,15 +424,15 @@ export default function CallHistoryPage() {
               <div className="flex items-center gap-4">
                 {getStatusBadge(selectedCall.call_status)}
                 <span className="text-sm text-muted-foreground">
-                  Duration: {formatDuration(selectedCall.call_duration_seconds)}
+                  {siteConfig.dashboardCallHistory.modalDuration.replace('{duration}', formatDuration(selectedCall.call_duration_seconds))}
                 </span>
               </div>
-              
+
               <div>
-                <h4 className="font-semibold text-foreground mb-3">Transcript</h4>
+                <h4 className="font-semibold text-foreground mb-3">{siteConfig.dashboardCallHistory.modalTranscriptTitle}</h4>
                 <div className="bg-muted rounded-lg p-4">
                   <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
-                    {selectedCall.transcript || 'No transcript available for this call.'}
+                    {selectedCall.transcript || siteConfig.dashboardCallHistory.modalNoTranscript}
                   </p>
                 </div>
               </div>
@@ -439,7 +440,7 @@ export default function CallHistoryPage() {
 
             <div className="p-6 border-t border-border bg-muted/50">
               <Button onClick={() => setSelectedCall(null)} className="w-full">
-                Close
+                {siteConfig.dashboardCallHistory.modalClose}
               </Button>
             </div>
           </div>

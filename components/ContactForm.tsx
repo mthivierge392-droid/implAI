@@ -6,6 +6,7 @@ import { Mail, User, MessageSquare, Send, X } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
 
 interface ContactFormProps {
   onClose: () => void;
@@ -83,9 +84,9 @@ export default function ContactForm({ onClose }: ContactFormProps) {
 
         {/* Header */}
         <div className="mb-10">
-          <h2 className="text-4xl font-bold text-foreground">Contact Us</h2>
+          <h2 className="text-4xl font-bold text-foreground">{siteConfig.contact.title}</h2>
           <p className="text-lg text-muted-foreground mt-3">
-            Request access to the AI Phone Agents Dashboard
+            {siteConfig.contact.subtitle}
           </p>
         </div>
 
@@ -103,7 +104,7 @@ export default function ContactForm({ onClose }: ContactFormProps) {
                 type="text"
                 name="name"
                 autoComplete="name"
-                placeholder="Your name"
+                placeholder={siteConfig.contact.namePlaceholder}
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -132,7 +133,7 @@ export default function ContactForm({ onClose }: ContactFormProps) {
                 type="email"
                 name="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={siteConfig.contact.emailPlaceholder}
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -159,7 +160,7 @@ export default function ContactForm({ onClose }: ContactFormProps) {
               <textarea
                 id="message"
                 name="message"
-                placeholder="I would like to request access to the AI Phone Agents Dashboard..."
+                placeholder={siteConfig.contact.messagePlaceholder}
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
@@ -186,7 +187,7 @@ export default function ContactForm({ onClose }: ContactFormProps) {
               disabled={loading}
               className="flex-1"
             >
-              Cancel
+              {siteConfig.contact.cancelButton}
             </Button>
             <Button
               type="submit"
@@ -195,7 +196,7 @@ export default function ContactForm({ onClose }: ContactFormProps) {
               className="flex-1"
             >
               <Send size={16} />
-              Send Message
+              {siteConfig.contact.submitButton}
             </Button>
           </div>
         </form>

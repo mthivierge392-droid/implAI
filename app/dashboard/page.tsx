@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
+import { siteConfig } from '@/config/site';
 
 interface Stats {
   totalCalls: number;
@@ -54,18 +55,18 @@ export default function DashboardOverview() {
     return (
       <div className="flex flex-col gap-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Overview</h1>
-          <p className="text-muted-foreground">Your AI agents at a glance</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardOverview.title}</h1>
+          <p className="text-muted-foreground">{siteConfig.dashboardOverview.subtitle}</p>
         </div>
-        
+
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <Phone className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No calls yet</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{siteConfig.dashboardOverview.emptyStateTitle}</h3>
             <p className="text-muted-foreground text-sm text-center max-w-sm">
-              Your agents haven't made any calls. Once they do, you'll see insights here.
+              {siteConfig.dashboardOverview.emptyStateDescription}
             </p>
           </CardContent>
         </Card>
@@ -74,41 +75,41 @@ export default function DashboardOverview() {
   }
 
   const statConfigs = [
-    { 
-      icon: Phone, 
-      label: "Total Calls", 
-      value: stats!.totalCalls, 
+    {
+      icon: Phone,
+      label: siteConfig.dashboardOverview.stats.totalCalls.label,
+      value: stats!.totalCalls,
       color: "blue",
-      description: "All time calls"
+      description: siteConfig.dashboardOverview.stats.totalCalls.description
     },
-    { 
-      icon: TrendingUp, 
-      label: "Active Agents", 
-      value: stats!.agents, 
+    {
+      icon: TrendingUp,
+      label: siteConfig.dashboardOverview.stats.activeAgents.label,
+      value: stats!.agents,
       color: "green",
-      description: "Configured agents"
+      description: siteConfig.dashboardOverview.stats.activeAgents.description
     },
-    { 
-      icon: Clock, 
-      label: "Avg Duration", 
-      value: `${stats!.avgDuration}s`, 
+    {
+      icon: Clock,
+      label: siteConfig.dashboardOverview.stats.avgDuration.label,
+      value: `${stats!.avgDuration}s`,
       color: "purple",
-      description: "Last 30 days"
+      description: siteConfig.dashboardOverview.stats.avgDuration.description
     },
-    { 
-      icon: CheckCircle, 
-      label: "Completed", 
-      value: stats!.completedCalls, 
+    {
+      icon: CheckCircle,
+      label: siteConfig.dashboardOverview.stats.completed.label,
+      value: stats!.completedCalls,
       color: "orange",
-      description: "Success rate"
+      description: siteConfig.dashboardOverview.stats.completed.description
     },
   ] as const;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Overview</h1>
-        <p className="text-muted-foreground">Real-time performance metrics</p>
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardOverview.title}</h1>
+        <p className="text-muted-foreground">{siteConfig.dashboardOverview.subtitleWithData}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -140,13 +141,12 @@ export default function DashboardOverview() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
-            Welcome to AI Phone Agents
+            {siteConfig.dashboardOverview.welcomeTitle}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            This dashboard tracks your AI agents' performance in real-time. 
-            Monitor call volume, success rates, and usage from a single view.
+            {siteConfig.dashboardOverview.welcomeDescription}
           </p>
         </CardContent>
       </Card>
