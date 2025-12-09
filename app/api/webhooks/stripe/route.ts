@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { MINUTE_PACKAGES, validateStripeConfig } from '@/lib/stripe-config';
-import { findUserIdByEmail, addMinutesToClient, getUserAgentInfo, createRestoreNumberJob } from '@/lib/supabase-helpers';
+import { findUserIdByEmail, addMinutesToClient, getUserAgentInfo, restorePhoneNumberToAgent } from '@/lib/supabase-helpers';
 
 // Validate configuration on startup
 if (!validateStripeConfig()) {
@@ -136,18 +136,17 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     `✅ Successfully added ${totalMinutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
-  // Step 3: Check if user has a Twilio number and restore it to real agent
+  // Step 3: Instantly restore phone to real agent (if user has Twilio number)
   const agentInfo = await getUserAgentInfo(userId);
 
   if (agentInfo) {
-    const jobCreated = await createRestoreNumberJob(
-      userId,
+    const restored = await restorePhoneNumberToAgent(
       agentInfo.retell_agent_id,
       agentInfo.twilio_number
     );
 
-    if (jobCreated) {
-      console.log(`📞 Queued phone number restoration: ${agentInfo.twilio_number} → ${agentInfo.retell_agent_id}`);
+    if (!restored) {
+      console.warn('⚠️ Phone restoration failed, but minutes were added successfully');
     }
   } else {
     console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');
@@ -202,18 +201,17 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     `✅ Successfully added ${minutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
-  // Check if user has a Twilio number and restore it to real agent
+  // Instantly restore phone to real agent (if user has Twilio number)
   const agentInfo = await getUserAgentInfo(userId);
 
   if (agentInfo) {
-    const jobCreated = await createRestoreNumberJob(
-      userId,
+    const restored = await restorePhoneNumberToAgent(
       agentInfo.retell_agent_id,
       agentInfo.twilio_number
     );
 
-    if (jobCreated) {
-      console.log(`📞 Queued phone number restoration: ${agentInfo.twilio_number} → ${agentInfo.retell_agent_id}`);
+    if (!restored) {
+      console.warn('⚠️ Phone restoration failed, but minutes were added successfully');
     }
   } else {
     console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');

@@ -123,42 +123,6 @@ export async function POST(request: NextRequest) {
             .eq('id', job.id);
 
           results.push({ jobId: job.id, status: 'success' });
-        } else if (job.job_type === 'restore_number') {
-          const { phone_number, real_agent_id } = job.payload;
-
-          console.log(`📞 Restoring phone ${phone_number} to real agent ${real_agent_id}`);
-
-          const response = await fetchWithTimeout(
-            `${RETELL_API_URL}/update-phone-number/${encodeURIComponent(phone_number)}`,
-            {
-              method: 'PATCH',
-              headers: {
-                'Authorization': `Bearer ${process.env.RETELL_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                inbound_agent_id: real_agent_id,
-                outbound_agent_id: real_agent_id,
-                nickname: 'Active Number',
-              }),
-            }
-          );
-
-          const responseText = await response.text();
-          if (!response.ok) {
-            throw new Error(`Retell API error: ${response.status} ${responseText}`);
-          }
-
-          await serviceSupabase
-            .from('webhook_jobs')
-            .update({
-              status: 'completed',
-              retry_count: job.retry_count + 1
-            })
-            .eq('id', job.id);
-
-          console.log(`✅ Phone ${phone_number} restored to agent ${real_agent_id}`);
-          results.push({ jobId: job.id, status: 'success' });
         }
 
       } catch (error: any) {

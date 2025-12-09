@@ -144,37 +144,50 @@ export async function getUserAgentInfo(userId: string): Promise<{
 }
 
 /**
- * Create a webhook job to restore phone number to real agent
- * This is triggered when a user purchases minutes
+ * Restore phone number to real agent immediately via Retell API
+ * Called directly from Stripe webhook for instant restoration
  *
- * @param userId - The user's ID from auth.users
  * @param agentId - The real agent ID to restore
  * @param phoneNumber - The Twilio number to restore
- * @returns true if job was created, false otherwise
+ * @returns true if restoration succeeded, false otherwise
  */
-export async function createRestoreNumberJob(
-  userId: string,
+export async function restorePhoneNumberToAgent(
   agentId: string,
   phoneNumber: string
 ): Promise<boolean> {
-  const { error } = await supabaseAdmin.from('webhook_jobs').insert({
-    client_id: userId,
-    job_type: 'restore_number',
-    status: 'pending',
-    payload: {
-      phone_number: phoneNumber,
-      real_agent_id: agentId,
-      triggered_by: 'stripe_purchase',
-    },
-  });
+  const RETELL_API_URL = 'https://api.retellai.com';
 
-  if (error) {
-    console.error('❌ Failed to create restore_number job:', error);
+  try {
+    console.log(`📞 Restoring phone ${phoneNumber} to agent ${agentId}...`);
+
+    const response = await fetch(
+      `${RETELL_API_URL}/update-phone-number/${encodeURIComponent(phoneNumber)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${process.env.RETELL_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inbound_agent_id: agentId,
+          outbound_agent_id: agentId,
+          nickname: 'Active Number',
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ Retell API error: ${response.status} ${errorText}`);
+      return false;
+    }
+
+    console.log(`✅ Phone ${phoneNumber} instantly restored to agent ${agentId}`);
+    return true;
+  } catch (error: any) {
+    console.error('❌ Failed to restore phone number:', error.message);
     return false;
   }
-
-  console.log(`✅ Created restore_number job for ${phoneNumber} → ${agentId}`);
-  return true;
 }
 
 export { supabaseAdmin };
