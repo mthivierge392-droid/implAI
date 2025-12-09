@@ -122,25 +122,43 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // Find user in database by email
-  const { data: user, error: userError } = await supabaseAdmin
-    .from('clients')
-    .select('user_id, minutes_included, email')
-    .eq('email', customerEmail)
-    .single();
+  // Step 1: Find user_id from auth.users table by email
+  const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
 
-  if (userError || !user) {
-    console.error('❌ User not found for email:', customerEmail);
+  if (authError) {
+    console.error('❌ Error fetching auth users:', authError);
     return;
   }
 
-  // Update user's minutes
-  const newMinutesTotal = user.minutes_included + totalMinutesToAdd;
+  const authUser = authUsers.users.find(u => u.email === customerEmail);
+
+  if (!authUser) {
+    console.error('❌ User not found in auth for email:', customerEmail);
+    return;
+  }
+
+  const userId = authUser.id;
+  console.log(`✅ Found user in auth: ${userId} for email: ${customerEmail}`);
+
+  // Step 2: Get current minutes from clients table
+  const { data: client, error: clientError } = await supabaseAdmin
+    .from('clients')
+    .select('minutes_included')
+    .eq('user_id', userId)
+    .single();
+
+  if (clientError || !client) {
+    console.error('❌ Client not found for user_id:', userId);
+    return;
+  }
+
+  // Step 3: Update user's minutes in clients table
+  const newMinutesTotal = client.minutes_included + totalMinutesToAdd;
 
   const { error: updateError } = await supabaseAdmin
     .from('clients')
     .update({ minutes_included: newMinutesTotal })
-    .eq('user_id', user.user_id);
+    .eq('user_id', userId);
 
   if (updateError) {
     console.error('❌ Failed to update minutes:', updateError);
@@ -148,11 +166,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 
   console.log(
-    `✅ Successfully added ${totalMinutesToAdd} minutes to ${customerEmail}. New total: ${newMinutesTotal} minutes`
+    `✅ Successfully added ${totalMinutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
   // Optional: Log the transaction for audit purposes
-  await logTransaction(user.user_id, totalMinutesToAdd, session.id, session.amount_total || 0);
+  await logTransaction(userId, totalMinutesToAdd, session.id, session.amount_total || 0);
 }
 
 /**
@@ -180,24 +198,41 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
   const minutesToAdd = MINUTE_PACKAGES[priceId];
 
-  // Find and update user (same logic as checkout session)
-  const { data: user, error: userError } = await supabaseAdmin
-    .from('clients')
-    .select('user_id, minutes_included, email')
-    .eq('email', customerEmail)
-    .single();
+  // Find user_id from auth.users table by email
+  const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
 
-  if (userError || !user) {
-    console.error('❌ User not found for email:', customerEmail);
+  if (authError) {
+    console.error('❌ Error fetching auth users:', authError);
     return;
   }
 
-  const newMinutesTotal = user.minutes_included + minutesToAdd;
+  const authUser = authUsers.users.find(u => u.email === customerEmail);
+
+  if (!authUser) {
+    console.error('❌ User not found in auth for email:', customerEmail);
+    return;
+  }
+
+  const userId = authUser.id;
+
+  // Get current minutes from clients table
+  const { data: client, error: clientError } = await supabaseAdmin
+    .from('clients')
+    .select('minutes_included')
+    .eq('user_id', userId)
+    .single();
+
+  if (clientError || !client) {
+    console.error('❌ Client not found for user_id:', userId);
+    return;
+  }
+
+  const newMinutesTotal = client.minutes_included + minutesToAdd;
 
   const { error: updateError } = await supabaseAdmin
     .from('clients')
     .update({ minutes_included: newMinutesTotal })
-    .eq('user_id', user.user_id);
+    .eq('user_id', userId);
 
   if (updateError) {
     console.error('❌ Failed to update minutes:', updateError);
@@ -205,10 +240,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   }
 
   console.log(
-    `✅ Successfully added ${minutesToAdd} minutes to ${customerEmail}. New total: ${newMinutesTotal} minutes`
+    `✅ Successfully added ${minutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
-  await logTransaction(user.user_id, minutesToAdd, paymentIntent.id, paymentIntent.amount);
+  await logTransaction(userId, minutesToAdd, paymentIntent.id, paymentIntent.amount);
 }
 
 /**
