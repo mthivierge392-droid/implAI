@@ -26,7 +26,7 @@
  */
 
 export const MINUTE_PACKAGES: Record<string, number> = {
-  'price_1SZhpo2M4IL6pwd8Oo2xSDId': 100,  // 100 minutes per unit
+  'price_1ScZiG2NjoUFdMobO1RPBVcq': 100, // 100 Minutes for $10 
 };
 
 /**
