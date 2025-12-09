@@ -67,7 +67,7 @@ export default function MinutesCounter() {
                   used: newData.minutes_used,
                   remaining,
                 });
-                showToast(`Minutes used: ${newData.minutes_used}/${newData.minutes_included}`, 'info');
+                showToast(`Minutes remaining: ${remaining.toLocaleString()}`, 'info');
               }
             }
           )
@@ -136,7 +136,7 @@ export default function MinutesCounter() {
           isLow && !isEmpty && "text-warning",
           !isLow && !isEmpty && "text-foreground"
         )}>
-          {minutes.remaining} / {minutes.included}
+          {minutes.remaining.toLocaleString()}
         </p>
       </div>
       <div className="flex-1">
