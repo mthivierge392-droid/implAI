@@ -101,7 +101,7 @@ export default function MinutesCounter() {
 
   return (
     <div className={cn(
-      "px-3 md:px-4 py-2 border-r border-border flex items-center gap-3",
+      "px-2 md:px-4 py-2 border-r border-border flex items-center gap-1.5 md:gap-3",
       isEmpty && "bg-destructive/10 border-destructive/20",
       isLow && !isEmpty && "bg-warning/10 border-warning/20"
     )}>
@@ -123,7 +123,7 @@ export default function MinutesCounter() {
 
       <div className="min-w-0">
         <p className={cn(
-          "hidden md:block text-xs font-medium",
+          "text-xs font-medium",
           isEmpty && "text-destructive",
           isLow && !isEmpty && "text-warning",
           !isLow && !isEmpty && "text-muted-foreground"
@@ -139,7 +139,7 @@ export default function MinutesCounter() {
           {minutes.remaining.toLocaleString()}
         </p>
       </div>
-      <div className="flex-1">
+      <div className="hidden sm:flex flex-1">
         <div className="w-full h-2 bg-border rounded-full overflow-hidden">
           <div
             className={cn(

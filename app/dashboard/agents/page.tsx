@@ -236,12 +236,12 @@ export default function AgentsPage() {
         {agents.map(agent => (
           <Card key={agent.id} className="group hover:shadow-md transition-all">
             <CardHeader className="pb-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className="flex items-start justify-between gap-2 md:gap-4">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform flex-shrink-0">
                     <MessageSquare className="w-5 h-5 text-primary" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     {editingNameId === agent.id ? (
                       <input
                         type="text"
@@ -250,26 +250,26 @@ export default function AgentsPage() {
                         onBlur={() => handleNameSave(agent)}
                         onKeyDown={(e) => handleNameKeyDown(e, agent)}
                         autoFocus
-                        className="text-lg font-semibold bg-background border border-input rounded px-2 py-1 focus:ring-2 focus:ring-ring focus:border-ring outline-none"
+                        className="text-lg font-semibold bg-background border border-input rounded px-2 py-1 focus:ring-2 focus:ring-ring focus:border-ring outline-none w-full"
                       />
                     ) : (
-                      <CardTitle 
+                      <CardTitle
                         className="text-lg cursor-pointer hover:text-primary transition-colors"
                         onClick={() => handleNameClick(agent)}
                       >
                         {agent.agent_name}
                       </CardTitle>
                     )}
-                    <CardDescription className="font-mono text-xs">{agent.retell_agent_id}</CardDescription>
+                    <CardDescription className="font-mono text-xs truncate max-w-[150px] sm:max-w-[200px] md:max-w-none">{agent.retell_agent_id}</CardDescription>
                   </div>
                 </div>
                 <Button
                   size="sm"
                   onClick={() => handleEditPrompt(agent)}
-                  className="gap-2"
+                  className="gap-2 flex-shrink-0"
                 >
                   <Edit3 className="w-4 h-4" />
-                  {siteConfig.dashboardAgents.editPromptButton}
+                  <span className="hidden sm:inline">{siteConfig.dashboardAgents.editPromptButton}</span>
                 </Button>
               </div>
             </CardHeader>
@@ -333,11 +333,11 @@ export default function AgentsPage() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
           onClick={() => setSelectedAgent(null)}
         >
-          <div 
-            className="bg-card rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-border"
+          <div
+            className="bg-card rounded-xl shadow-xl max-w-[95vw] sm:max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-border"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-6 border-b border-border">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
               <div>
                 <h3 className="text-xl font-semibold text-card-foreground">{siteConfig.dashboardAgents.modalTitle}</h3>
                 <p className="text-sm text-muted-foreground">{selectedAgent.agent_name}</p>
@@ -354,7 +354,7 @@ export default function AgentsPage() {
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
               <textarea
                 value={editingPrompt}
                 onChange={(e) => {
@@ -372,7 +372,7 @@ export default function AgentsPage() {
               )}
             </div>
 
-            <div className="flex gap-3 p-6 border-t border-border bg-muted/50">
+            <div className="flex gap-3 p-4 md:p-6 border-t border-border bg-muted/50">
               <Button
                 variant="outline"
                 onClick={() => {

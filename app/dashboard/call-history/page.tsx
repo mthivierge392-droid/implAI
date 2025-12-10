@@ -317,50 +317,76 @@ export default function CallHistoryPage() {
               <p className="text-muted-foreground text-sm mt-1">{siteConfig.dashboardCallHistory.emptyStateDescription}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.dateTime}</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.number}</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.status}</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.duration}</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.actions}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {callsData?.calls.map((call) => (
-                    <tr 
-                      key={call.id} 
-                      className="border-b border-border hover:bg-muted/50 transition-colors"
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {callsData?.calls.map((call) => (
+                  <Card key={call.id} className="p-4 hover:bg-muted/50 transition-colors">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{sanitizePhoneNumber(call.phone_number)}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{formatDate(call.created_at)}</p>
+                      </div>
+                      {getStatusBadge(call.call_status)}
+                    </div>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => setSelectedCall(call)}
+                      className="p-0 h-auto font-medium text-primary"
                     >
-                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
-                        {formatDate(call.created_at)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
-                        {sanitizePhoneNumber(call.phone_number)}
-                      </td>
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {getStatusBadge(call.call_status)}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
-                        {formatDuration(call.call_duration_seconds)}
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => setSelectedCall(call)}
-                          className="p-0 h-auto font-medium"
-                        >
-                          {siteConfig.dashboardCallHistory.viewTranscript}
-                        </Button>
-                      </td>
+                      {siteConfig.dashboardCallHistory.viewTranscript}
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.dateTime}</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.number}</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.status}</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.duration}</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">{siteConfig.dashboardCallHistory.tableHeaders.actions}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {callsData?.calls.map((call) => (
+                      <tr
+                        key={call.id}
+                        className="border-b border-border hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
+                          {formatDate(call.created_at)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
+                          {sanitizePhoneNumber(call.phone_number)}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {getStatusBadge(call.call_status)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-foreground whitespace-nowrap">
+                          {formatDuration(call.call_duration_seconds)}
+                        </td>
+                        <td className="py-3 px-4 text-sm">
+                          <Button
+                            variant="link"
+                            size="sm"
+                            onClick={() => setSelectedCall(call)}
+                            className="p-0 h-auto font-medium"
+                          >
+                            {siteConfig.dashboardCallHistory.viewTranscript}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}
@@ -400,11 +426,11 @@ export default function CallHistoryPage() {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
           onClick={() => setSelectedCall(null)}
         >
-          <div 
-            className="bg-card rounded-xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-border"
+          <div
+            className="bg-card rounded-xl shadow-xl max-w-[95vw] sm:max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-border"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-6 border-b border-border">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border">
               <div>
                 <h3 className="text-xl font-semibold text-card-foreground">{siteConfig.dashboardCallHistory.modalTitle}</h3>
                 <p className="text-sm text-muted-foreground">
@@ -420,7 +446,7 @@ export default function CallHistoryPage() {
               </Button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
               <div className="flex items-center gap-4">
                 {getStatusBadge(selectedCall.call_status)}
                 <span className="text-sm text-muted-foreground">
@@ -438,7 +464,7 @@ export default function CallHistoryPage() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-border bg-muted/50">
+            <div className="p-4 md:p-6 border-t border-border bg-muted/50">
               <Button onClick={() => setSelectedCall(null)} className="w-full">
                 {siteConfig.dashboardCallHistory.modalClose}
               </Button>

@@ -27,7 +27,7 @@ export default function DashboardOverview() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {[...Array(4)].map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -53,7 +53,7 @@ export default function DashboardOverview() {
 
   if (stats && stats.totalCalls === 0) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4 md:gap-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardOverview.title}</h1>
           <p className="text-muted-foreground">{siteConfig.dashboardOverview.subtitle}</p>
@@ -106,13 +106,13 @@ export default function DashboardOverview() {
   ] as const;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 md:gap-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardOverview.title}</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">{siteConfig.dashboardOverview.title}</h1>
         <p className="text-muted-foreground">{siteConfig.dashboardOverview.subtitleWithData}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {statConfigs.map((stat) => {
           const Icon = stat.icon;
           return (
