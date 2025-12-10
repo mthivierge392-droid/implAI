@@ -36,7 +36,7 @@ export default function AgentsPage() {
     staleTime: Infinity, // User ID never changes
   });
 
-  // Fetch agents with React Query
+  // Fetch agents with React Query (cache forever, rely on real-time updates)
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ['agents', userId],
     queryFn: async () => {
@@ -63,15 +63,29 @@ export default function AgentsPage() {
       return data || [];
     },
     enabled: !!userId,
-    staleTime: API_CONFIG.STALE_TIME,
+    staleTime: Infinity, // Cache forever - rely on real-time updates
   });
 
   useEffect(() => {
     if (!userId) return;
 
-    // Subscribe to minutes changes for real-time status updates
-    const channel = supabase
-      .channel('agents-minutes-channel')
+    // Real-time subscription for agents table changes
+    const agentsChannel = supabase
+      .channel('agents-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // All events: INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'agents',
+          filter: `client_id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('Agent change detected:', payload);
+          // Invalidate and refetch agents when any change occurs
+          queryClient.invalidateQueries({ queryKey: ['agents', userId] });
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -89,9 +103,9 @@ export default function AgentsPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(agentsChannel);
     };
-  }, [userId]);
+  }, [userId, queryClient]);
 
   const handleEditPrompt = (agent: Agent) => {
     setSelectedAgent(agent);

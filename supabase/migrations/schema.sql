@@ -247,6 +247,7 @@ CREATE INDEX IF NOT EXISTS idx_webhook_jobs_client ON public.webhook_jobs(client
 -- 9. ENABLE REALTIME
 ALTER PUBLICATION supabase_realtime ADD TABLE public.call_history;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.clients;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.agents;
 
 
 -- ========================================
