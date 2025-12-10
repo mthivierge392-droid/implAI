@@ -55,20 +55,19 @@ export default function MinutesCounter() {
               event: 'UPDATE',
               schema: 'public',
               table: 'clients',
+              filter: `user_id=eq.${user.id}`,
             },
             (payload) => {
               if (!isMounted.current) return;
-              
+
               const newData = payload.new as any;
-              if (newData.user_id === user.id) {
-                const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
-                setMinutes({
-                  included: newData.minutes_included,
-                  used: newData.minutes_used,
-                  remaining,
-                });
-                showToast(`Minutes remaining: ${remaining.toLocaleString()}`, 'info');
-              }
+              const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
+              setMinutes({
+                included: newData.minutes_included,
+                used: newData.minutes_used,
+                remaining,
+              });
+              showToast(`Minutes remaining: ${remaining.toLocaleString()}`, 'info');
             }
           )
           .subscribe();

@@ -68,34 +68,29 @@ export default function CallHistoryPage() {
   const channelRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: clientId, isLoading: clientLoading } = useQuery({
-    queryKey: ['client-id'],
+  // Get user ID once and cache forever
+  const { data: userId } = useQuery({
+    queryKey: ['user-id'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
-
-      const { data: client } = await supabase
-        .from('clients')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (!client) throw new Error('Client not found');
-      return client.user_id;
+      return user.id;
     },
-    staleTime: API_CONFIG.STALE_TIME,
+    staleTime: Infinity, // User ID never changes
   });
 
+  // Fetch agent IDs with caching
   const { data: agentIds } = useQuery({
-    queryKey: ['agent-ids', clientId],
+    queryKey: ['agent-ids', userId],
     queryFn: async () => {
       const { data } = await supabase
         .from('agents')
         .select('retell_agent_id')
-        .eq('client_id', clientId!);
+        .eq('client_id', userId!);
       return data?.map(a => a.retell_agent_id) || [];
     },
-    enabled: !!clientId,
+    enabled: !!userId,
+    staleTime: API_CONFIG.STALE_TIME,
   });
 
   useEffect(() => {
@@ -103,7 +98,7 @@ export default function CallHistoryPage() {
   }, [agentIds]);
 
   const { data: callsData, isLoading: callsLoading } = useQuery({
-    queryKey: ['calls', clientId, searchPhone, page],
+    queryKey: ['calls', userId, searchPhone, page],
     queryFn: async () => {
       let query = supabase
         .from('call_history')
@@ -159,7 +154,7 @@ export default function CallHistoryPage() {
             if (agentIdsRef.current.includes(newCall.retell_agent_id)) {
               if (!isUnmounting.current) {
                 queryClient.setQueryData(
-                  ['calls', clientId, searchPhone, page],
+                  ['calls', userId, searchPhone, page],
                   (old: any) => {
                     if (!old) return { calls: [newCall], totalCount: 1 };
                     return {
@@ -191,7 +186,7 @@ export default function CallHistoryPage() {
       if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
       if (channelRef.current) supabase.removeChannel(channelRef.current);
     };
-  }, [clientId, searchPhone, page, agentIds, queryClient]);
+  }, [userId, searchPhone, page, agentIds, queryClient]);
 
   const totalPages = Math.ceil((callsData?.totalCount || 0) / ITEMS_PER_PAGE);
 
@@ -254,7 +249,7 @@ export default function CallHistoryPage() {
     );
   };
 
-  if (clientLoading || callsLoading) {
+  if (callsLoading) {
     return (
       <div className="flex flex-col gap-4">
         <Card>
@@ -273,7 +268,7 @@ export default function CallHistoryPage() {
     );
   }
 
-  if (!clientId) {
+  if (!userId) {
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
         <p className="text-destructive">{siteConfig.dashboardCallHistory.errorNotAuthenticated}</p>

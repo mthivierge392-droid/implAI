@@ -1,7 +1,7 @@
 // app/dashboard/agents/page.tsx (complete)
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
 import { X, Loader2, MessageSquare, Edit3 } from 'lucide-react';
@@ -12,10 +12,10 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { API_CONFIG } from '@/lib/constants';
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [editingPrompt, setEditingPrompt] = useState('');
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -23,17 +23,28 @@ export default function AgentsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMinutes, setHasMinutes] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchAgents = useCallback(async () => {
-    try {
+  // Get user ID
+  const { data: userId } = useQuery({
+    queryKey: ['user-id'],
+    queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+      return user.id;
+    },
+    staleTime: Infinity, // User ID never changes
+  });
 
+  // Fetch agents with React Query
+  const { data: agents = [], isLoading } = useQuery({
+    queryKey: ['agents', userId],
+    queryFn: async () => {
       // Fetch client data to check minutes
       const { data: client } = await supabase
         .from('clients')
         .select('user_id, minutes_included, minutes_used')
-        .eq('user_id', user.id)
+        .eq('user_id', userId!)
         .single();
 
       if (!client) throw new Error('Client not found');
@@ -49,17 +60,14 @@ export default function AgentsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setAgents(data || []);
-    } catch (err) {
-      console.error('Error loading agents:', err);
-      setLoading(false);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return data || [];
+    },
+    enabled: !!userId,
+    staleTime: API_CONFIG.STALE_TIME,
+  });
 
   useEffect(() => {
-    fetchAgents();
+    if (!userId) return;
 
     // Subscribe to minutes changes for real-time status updates
     const channel = supabase
@@ -70,6 +78,7 @@ export default function AgentsPage() {
           event: 'UPDATE',
           schema: 'public',
           table: 'clients',
+          filter: `user_id=eq.${userId}`,
         },
         (payload) => {
           const newData = payload.new as any;
@@ -82,7 +91,7 @@ export default function AgentsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchAgents]);
+  }, [userId]);
 
   const handleEditPrompt = (agent: Agent) => {
     setSelectedAgent(agent);
@@ -102,11 +111,13 @@ export default function AgentsPage() {
     }
 
     const originalName = agent.agent_name;
-    
+
     // Optimistically update UI
-    setAgents(prev => prev.map(a => 
-      a.id === agent.id ? { ...a, agent_name: editingNameValue } : a
-    ));
+    queryClient.setQueryData(['agents', userId], (prev: Agent[] | undefined) =>
+      prev?.map((a: Agent) =>
+        a.id === agent.id ? { ...a, agent_name: editingNameValue } : a
+      ) || []
+    );
     setEditingNameId(null);
 
     try {
@@ -120,9 +131,11 @@ export default function AgentsPage() {
     } catch (error) {
       console.error('Error updating name:', error);
       // Revert on error
-      setAgents(prev => prev.map(a =>
-        a.id === agent.id ? { ...a, agent_name: originalName } : a
-      ));
+      queryClient.setQueryData(['agents', userId], (prev: Agent[] | undefined) =>
+        prev?.map((a: Agent) =>
+          a.id === agent.id ? { ...a, agent_name: originalName } : a
+        ) || []
+      );
       showToast(siteConfig.dashboardAgents.nameUpdateFailed, 'error');
     }
   };
@@ -151,10 +164,12 @@ export default function AgentsPage() {
         return;
       }
 
-      const updatedAgents = agents.map(a => 
-        a.id === selectedAgent.id ? { ...a, prompt: editingPrompt } : a
+      // Optimistically update cache
+      queryClient.setQueryData(['agents', userId], (prev: Agent[] | undefined) =>
+        prev?.map((a: Agent) =>
+          a.id === selectedAgent.id ? { ...a, prompt: editingPrompt } : a
+        ) || []
       );
-      setAgents(updatedAgents);
 
       const response = await fetch('/api/retell/update-llm', {
         method: 'PATCH',
@@ -181,9 +196,12 @@ export default function AgentsPage() {
       showToast(siteConfig.dashboardAgents.promptUpdated, 'success');
     } catch (error) {
       console.error('Error saving prompt:', error);
-      setAgents(prev => prev.map(a =>
-        a.id === selectedAgent.id ? { ...a, prompt: originalPrompt } : a
-      ));
+      // Revert on error
+      queryClient.setQueryData(['agents', userId], (prev: Agent[] | undefined) =>
+        prev?.map((a: Agent) =>
+          a.id === selectedAgent.id ? { ...a, prompt: originalPrompt } : a
+        ) || []
+      );
       setError(siteConfig.dashboardAgents.errorSaveFailed);
       showToast(siteConfig.dashboardAgents.promptUpdateFailed, 'error');
     } finally {
@@ -191,7 +209,7 @@ export default function AgentsPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid gap-4">
         {[...Array(3)].map((_, i) => (
