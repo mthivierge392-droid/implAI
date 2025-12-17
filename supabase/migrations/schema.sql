@@ -250,6 +250,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.clients;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.agents;
 
 
+-- 10. ADD NOT NULL CONSTRAINTS (Safety measure to prevent NULL values)
+ALTER TABLE public.clients
+ALTER COLUMN minutes_included SET NOT NULL,
+ALTER COLUMN minutes_used SET NOT NULL;
+
+
 -- ========================================
 -- DEPLOYMENT COMPLETE
 -- ========================================

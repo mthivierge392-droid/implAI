@@ -22,7 +22,6 @@ export default function AgentsPage() {
   const [editingNameValue, setEditingNameValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasMinutes, setHasMinutes] = useState(true);
   const queryClient = useQueryClient();
 
   // Get user ID
@@ -36,27 +35,35 @@ export default function AgentsPage() {
     staleTime: Infinity, // User ID never changes
   });
 
+  // Fetch client minutes status (separate query for real-time updates)
+  const { data: minutesData } = useQuery({
+    queryKey: ['client-minutes', userId],
+    queryFn: async () => {
+      const { data: client } = await supabase
+        .from('clients')
+        .select('minutes_included, minutes_used')
+        .eq('user_id', userId!)
+        .single();
+
+      if (!client) return { hasMinutes: false };
+
+      const remaining = Math.max(0, client.minutes_included - client.minutes_used);
+      return { hasMinutes: remaining > 0 };
+    },
+    enabled: !!userId,
+    staleTime: Infinity, // Cache forever - rely on real-time updates
+  });
+
+  const hasMinutes = minutesData?.hasMinutes ?? false;
+
   // Fetch agents with React Query (cache forever, rely on real-time updates)
   const { data: agents = [], isLoading } = useQuery({
     queryKey: ['agents', userId],
     queryFn: async () => {
-      // Fetch client data to check minutes
-      const { data: client } = await supabase
-        .from('clients')
-        .select('user_id, minutes_included, minutes_used')
-        .eq('user_id', userId!)
-        .single();
-
-      if (!client) throw new Error('Client not found');
-
-      // Check if has minutes
-      const remaining = Math.max(0, client.minutes_included - client.minutes_used);
-      setHasMinutes(remaining > 0);
-
       const { data, error } = await supabase
         .from('agents')
         .select('*')
-        .eq('client_id', client.user_id)
+        .eq('client_id', userId!)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -94,10 +101,9 @@ export default function AgentsPage() {
           table: 'clients',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          const newData = payload.new as any;
-          const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
-          setHasMinutes(remaining > 0);
+        () => {
+          // Invalidate minutes query to update hasMinutes status in real-time
+          queryClient.invalidateQueries({ queryKey: ['client-minutes', userId] });
         }
       )
       .subscribe();
