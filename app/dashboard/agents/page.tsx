@@ -1,7 +1,7 @@
 // app/dashboard/agents/page.tsx (complete)
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Agent } from '@/lib/supabase';
 import { X, Loader2, MessageSquare, Edit3, Plug, Phone, Calendar } from 'lucide-react';
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
+import { useRealtimeMinutes, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
 
 export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -90,45 +91,9 @@ export default function AgentsPage() {
     staleTime: Infinity, // Cache forever - rely on real-time updates
   });
 
-  useEffect(() => {
-    if (!userId) return;
-
-    // Real-time subscription for agents table changes
-    const agentsChannel = supabase
-      .channel('agents-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // All events: INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'agents',
-          filter: `client_id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('Agent change detected:', payload);
-          // Invalidate and refetch agents when any change occurs
-          queryClient.invalidateQueries({ queryKey: ['agents', userId] });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clients',
-          filter: `user_id=eq.${userId}`,
-        },
-        () => {
-          // Invalidate minutes query to update hasMinutes status in real-time
-          queryClient.invalidateQueries({ queryKey: ['client-minutes', userId] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(agentsChannel);
-    };
-  }, [userId, queryClient]);
+  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
+  useRealtimeMinutes(userId);
+  useRealtimeAgents(userId);
 
   const handleEditPrompt = (agent: Agent) => {
     setSelectedAgent(agent);

@@ -1,13 +1,13 @@
 // app/dashboard/call-history/page.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useState } from 'react';
 import { sanitizePhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CallHistory } from '@/lib/supabase';
 import { Search, ChevronLeft, ChevronRight, X, PhoneIncoming, Filter } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/button';
@@ -15,58 +15,16 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
+import { useRealtimeMinutes, useRealtimeCallHistory } from '@/hooks/useRealtimeSubscriptions';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_SEARCH_LENGTH = 20;
-
-function useRealtimeMinutes() {
-  const [minutes, setMinutes] = useState({
-    included: 0,
-    used: 0,
-    remaining: 0,
-  });
-
-  useEffect(() => {
-    const channel = supabase.channel('minutes-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'clients',
-        },
-        (payload) => {
-          const newData = payload.new as any;
-          setMinutes({
-            included: newData.minutes_included,
-            used: newData.minutes_used,
-            remaining: Math.max(0, newData.minutes_included - newData.minutes_used),
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  return minutes;
-}
 
 export default function CallHistoryPage() {
   const [selectedCall, setSelectedCall] = useState<CallHistory | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [searchPhone, setSearchPhone] = useState('');
   const [page, setPage] = useState(0);
-  const [realtimeEnabled, setRealtimeEnabled] = useState(true);
-  const queryClient = useQueryClient();
-  const minutes = useRealtimeMinutes();
-  
-  const isUnmounting = useRef(false);
-  const agentIdsRef = useRef<string[]>([]);
-  const channelRef = useRef<any>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get user ID once and cache forever
   const { data: userId } = useQuery({
@@ -93,9 +51,9 @@ export default function CallHistoryPage() {
     staleTime: API_CONFIG.STALE_TIME,
   });
 
-  useEffect(() => {
-    agentIdsRef.current = agentIds || [];
-  }, [agentIds]);
+  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
+  useRealtimeMinutes(userId);
+  useRealtimeCallHistory(agentIds, userId);
 
   const { data: callsData, isLoading: callsLoading } = useQuery({
     queryKey: ['calls', userId, searchPhone, page],
@@ -118,75 +76,6 @@ export default function CallHistoryPage() {
     enabled: !!agentIds && agentIds.length > 0,
     staleTime: API_CONFIG.STALE_TIME,
   });
-
-  // Real-time subscription
-  useEffect(() => {
-    isUnmounting.current = false;
-
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-      retryTimeoutRef.current = null;
-    }
-
-    const setupRealtime = () => {
-      if (!agentIdsRef.current.length) {
-        retryTimeoutRef.current = setTimeout(setupRealtime, 500);
-        return;
-      }
-
-      channelRef.current = supabase
-        .channel('call-history-channel')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'call_history',
-          },
-          (payload) => {
-            const newCall = payload.new as CallHistory;
-            
-            if (agentIdsRef.current.includes(newCall.retell_agent_id)) {
-              if (!isUnmounting.current) {
-                queryClient.setQueryData(
-                  ['calls', userId, searchPhone, page],
-                  (old: any) => {
-                    if (!old) return { calls: [newCall], totalCount: 1 };
-                    return {
-                      calls: [newCall, ...old.calls].slice(0, ITEMS_PER_PAGE),
-                      totalCount: old.totalCount + 1,
-                    };
-                  }
-                );
-                showToast(siteConfig.dashboardCallHistory.newCall.replace('{phone}', newCall.phone_number), 'info');
-              }
-            }
-          }
-        )
-        .subscribe((status: string) => {
-          setRealtimeEnabled(status === 'SUBSCRIBED');
-          
-          if ((status === 'CLOSED' || status === 'CHANNEL_ERROR') && !isUnmounting.current) {
-            retryTimeoutRef.current = setTimeout(() => {
-              if (!isUnmounting.current) setupRealtime();
-            }, 1000);
-          }
-        });
-    };
-
-    setupRealtime();
-
-    return () => {
-      isUnmounting.current = true;
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
-    };
-  }, [userId, searchPhone, page, agentIds, queryClient]);
 
   const totalPages = Math.ceil((callsData?.totalCount || 0) / ITEMS_PER_PAGE);
 
