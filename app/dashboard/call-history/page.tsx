@@ -53,7 +53,7 @@ export default function CallHistoryPage() {
 
   // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
   useRealtimeMinutes(userId);
-  useRealtimeCallHistory(agentIds, userId);
+  useRealtimeCallHistory(userId);
 
   const { data: callsData, isLoading: callsLoading } = useQuery({
     queryKey: ['calls', userId, searchPhone, page],

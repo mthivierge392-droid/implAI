@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
-import { useRealtimeMinutes, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
+import { useRealtimeMinutes, useRealtimeCallHistory, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
 
 export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -93,6 +93,7 @@ export default function AgentsPage() {
 
   // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
   useRealtimeMinutes(userId);
+  useRealtimeCallHistory(userId);
   useRealtimeAgents(userId);
 
   const handleEditPrompt = (agent: Agent) => {
