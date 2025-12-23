@@ -1,98 +1,78 @@
 //components/MinutesCounter.tsx
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { showToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRealtimeMinutes } from '@/hooks/useRealtimeSubscriptions';
 
 export default function MinutesCounter() {
-  const [minutes, setMinutes] = useState({
-    included: 0,
-    used: 0,
-    remaining: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const isMounted = useRef(false);
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // Get user ID
   useEffect(() => {
-    isMounted.current = true;
-    let channel: any;
-    
-    const setupSubscription = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          if (isMounted.current) setLoading(false);
-          return;
-        }
-
-        const { data: clientData, error } = await supabase
-          .from('clients')
-          .select('minutes_included, minutes_used')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error || !clientData) {
-          if (isMounted.current) setLoading(false);
-          return;
-        }
-
-        const remaining = Math.max(0, clientData.minutes_included - clientData.minutes_used);
-        if (isMounted.current) {
-          setMinutes({
-            included: clientData.minutes_included,
-            used: clientData.minutes_used,
-            remaining,
-          });
-        }
-
-        channel = supabase
-          .channel('minutes-counter')
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'clients',
-              filter: `user_id=eq.${user.id}`,
-            },
-            (payload) => {
-              if (!isMounted.current) return;
-
-              const newData = payload.new as any;
-              const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
-              setMinutes({
-                included: newData.minutes_included,
-                used: newData.minutes_used,
-                remaining,
-              });
-              showToast(`Minutes remaining: ${remaining.toLocaleString()}`, 'info');
-            }
-          )
-          .subscribe();
-
-        if (isMounted.current) setLoading(false);
-
-      } catch (error) {
-        console.error('Minutes counter error:', error);
-        if (isMounted.current) setLoading(false);
-      }
-    };
-
-    setupSubscription();
-
-    return () => {
-      isMounted.current = false;
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
   }, []);
 
-  if (loading) return null;
-  
-  const percentage = minutes.included > 0 
+  // Setup global real-time subscription
+  useRealtimeMinutes(userId || undefined);
+
+  // Query for minutes data
+  const { data: minutes, isLoading } = useQuery({
+    queryKey: ['client-minutes', userId],
+    queryFn: async () => {
+      if (!userId) throw new Error('No user');
+
+      const { data: clientData, error } = await supabase
+        .from('clients')
+        .select('minutes_included, minutes_used')
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !clientData) {
+        return { included: 0, used: 0, remaining: 0 };
+      }
+
+      const remaining = Math.max(0, clientData.minutes_included - clientData.minutes_used);
+      return {
+        included: clientData.minutes_included,
+        used: clientData.minutes_used,
+        remaining,
+      };
+    },
+    enabled: !!userId,
+    staleTime: 0, // Always fresh - rely on real-time updates
+    refetchOnMount: true,
+    refetchOnWindowFocus: true, // Refetch when user returns to app (mobile)
+  });
+
+  // Show toast when minutes change
+  useEffect(() => {
+    // Listen for query updates
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event.type === 'updated' &&
+        event.query.queryKey[0] === 'client-minutes' &&
+        event.query.queryKey[1] === userId
+      ) {
+        const data = event.query.state.data as any;
+        if (data?.remaining !== undefined) {
+          showToast(`Minutes remaining: ${data.remaining.toLocaleString()}`, 'info');
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [userId, queryClient]);
+
+  if (isLoading || !minutes) return null;
+
+  const percentage = minutes.included > 0
     ? Math.max(1, Math.round((minutes.used / minutes.included) * 100))
     : 0;
   const isLow = minutes.remaining < 500;

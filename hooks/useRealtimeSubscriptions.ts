@@ -15,6 +15,7 @@ export function useRealtimeMinutes(userId: string | undefined) {
   const queryClient = useQueryClient();
   const channelRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isActiveRef = useRef(true);
 
   useEffect(() => {
     if (!userId) return;
@@ -45,34 +46,75 @@ export function useRealtimeMinutes(userId: string | undefined) {
           },
           (payload) => {
             console.log('[Real-time] Minutes updated:', payload);
-            // Invalidate all queries that depend on client minutes
-            queryClient.invalidateQueries({ queryKey: ['client-minutes', userId] });
+            // Force immediate refetch of all client/minutes queries across all pages
+            queryClient.refetchQueries({ queryKey: ['client-minutes', userId] });
+            queryClient.refetchQueries({ queryKey: ['client'] });
+            // Also invalidate to mark as stale
+            queryClient.invalidateQueries({ queryKey: ['client-minutes'] });
             queryClient.invalidateQueries({ queryKey: ['client'] });
           }
         )
         .subscribe((status, err) => {
           console.log('[Real-time] Minutes subscription status:', status, err);
 
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Real-time] Minutes subscription active');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error('[Real-time] Minutes subscription failed, retrying in 2s...', err);
             // Retry connection after 2 seconds
-            retryTimeoutRef.current = setTimeout(() => {
-              setupSubscription();
-            }, 2000);
+            if (isActiveRef.current) {
+              retryTimeoutRef.current = setTimeout(() => {
+                if (isActiveRef.current) {
+                  setupSubscription();
+                }
+              }, 2000);
+            }
           }
         });
     };
 
+    // Handle visibility change (tab/app switching on mobile)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Real-time] Page became visible, reconnecting minutes...');
+        // Force reconnect when page becomes visible
+        setTimeout(() => {
+          if (isActiveRef.current) {
+            setupSubscription();
+          }
+        }, 500);
+      }
+    };
+
+    // Handle online/offline events
+    const handleOnline = () => {
+      console.log('[Real-time] Connection restored, reconnecting minutes...');
+      setTimeout(() => {
+        if (isActiveRef.current) {
+          setupSubscription();
+        }
+      }, 1000);
+    };
+
     setupSubscription();
+
+    // Add event listeners for mobile reliability
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
       console.log('[Real-time] Cleaning up minutes subscription');
+      isActiveRef.current = false;
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [userId, queryClient]);
 }
@@ -88,6 +130,8 @@ export function useRealtimeCallHistory(userId: string | undefined) {
   const channelRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const agentIdsRef = useRef<string[]>([]);
+  const isActiveRef = useRef(true);
+  const agentIdsFetchedRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -101,19 +145,24 @@ export function useRealtimeCallHistory(userId: string | undefined) {
           .eq('client_id', userId);
 
         agentIdsRef.current = data?.map(a => a.retell_agent_id) || [];
+        agentIdsFetchedRef.current = true;
         console.log('[Real-time] Loaded agent IDs for call history:', agentIdsRef.current);
 
         // Setup subscription after getting agent IDs
-        setupSubscription();
+        if (isActiveRef.current) {
+          setupSubscription();
+        }
       } catch (error) {
         console.error('[Real-time] Failed to fetch agent IDs:', error);
         // Retry after 3 seconds
-        retryTimeoutRef.current = setTimeout(fetchAgentIds, 3000);
+        if (isActiveRef.current) {
+          retryTimeoutRef.current = setTimeout(fetchAgentIds, 3000);
+        }
       }
     };
 
     const setupSubscription = () => {
-      if (agentIdsRef.current.length === 0) {
+      if (!agentIdsFetchedRef.current || agentIdsRef.current.length === 0) {
         console.log('[Real-time] No agents yet, will retry...');
         return;
       }
@@ -151,37 +200,88 @@ export function useRealtimeCallHistory(userId: string | undefined) {
               const phoneDisplay = newCall.phone_number || 'Unknown';
               showToast(`New call from ${phoneDisplay}`, 'info');
 
-              // Invalidate call history queries to trigger refetch
-              queryClient.invalidateQueries({ queryKey: ['call-history'] });
+              // Force immediate refetch of all queries across all pages
+              queryClient.refetchQueries({ queryKey: ['calls'] });
+              queryClient.refetchQueries({ queryKey: ['call-history'] });
+              queryClient.refetchQueries({ queryKey: ['client-minutes', userId] });
+              queryClient.refetchQueries({ queryKey: ['client'] });
+              queryClient.refetchQueries({ queryKey: ['dashboard-stats'] });
+
+              // Also invalidate to mark as stale
               queryClient.invalidateQueries({ queryKey: ['calls'] });
-              queryClient.invalidateQueries({ queryKey: ['client-minutes', userId] });
+              queryClient.invalidateQueries({ queryKey: ['call-history'] });
+              queryClient.invalidateQueries({ queryKey: ['client-minutes'] });
+              queryClient.invalidateQueries({ queryKey: ['client'] });
+              queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
             }
           }
         )
         .subscribe((status, err) => {
           console.log('[Real-time] Call history subscription status:', status, err);
 
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Real-time] Call history subscription active');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error('[Real-time] Call history subscription failed, retrying in 2s...', err);
             // Retry connection after 2 seconds
-            retryTimeoutRef.current = setTimeout(() => {
-              setupSubscription();
-            }, 2000);
+            if (isActiveRef.current) {
+              retryTimeoutRef.current = setTimeout(() => {
+                if (isActiveRef.current) {
+                  setupSubscription();
+                }
+              }, 2000);
+            }
           }
         });
+    };
+
+    // Handle visibility change (tab/app switching on mobile)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Real-time] Page became visible, reconnecting call history...');
+        // Force reconnect when page becomes visible
+        setTimeout(() => {
+          if (isActiveRef.current && agentIdsFetchedRef.current) {
+            setupSubscription();
+          } else if (isActiveRef.current && !agentIdsFetchedRef.current) {
+            fetchAgentIds();
+          }
+        }, 500);
+      }
+    };
+
+    // Handle online/offline events
+    const handleOnline = () => {
+      console.log('[Real-time] Connection restored, reconnecting call history...');
+      setTimeout(() => {
+        if (isActiveRef.current && agentIdsFetchedRef.current) {
+          setupSubscription();
+        } else if (isActiveRef.current && !agentIdsFetchedRef.current) {
+          fetchAgentIds();
+        }
+      }, 1000);
     };
 
     // Start by fetching agent IDs
     fetchAgentIds();
 
+    // Add event listeners for mobile reliability
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleVisibilityChange);
+
     return () => {
       console.log('[Real-time] Cleaning up call history subscription');
+      isActiveRef.current = false;
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [userId, queryClient]);
 }
@@ -195,6 +295,7 @@ export function useRealtimeAgents(userId: string | undefined) {
   const queryClient = useQueryClient();
   const channelRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isActiveRef = useRef(true);
 
   useEffect(() => {
     if (!userId) return;
@@ -225,34 +326,78 @@ export function useRealtimeAgents(userId: string | undefined) {
           },
           (payload) => {
             console.log('[Real-time] Agent change detected:', payload);
-            // Invalidate agents query to trigger refetch
-            queryClient.invalidateQueries({ queryKey: ['agents', userId] });
-            queryClient.invalidateQueries({ queryKey: ['agent-ids', userId] });
+            // Force immediate refetch of agent-related queries
+            queryClient.refetchQueries({ queryKey: ['agents', userId] });
+            queryClient.refetchQueries({ queryKey: ['agent-ids', userId] });
+            queryClient.refetchQueries({ queryKey: ['dashboard-stats'] });
+
+            // Also invalidate to mark as stale
+            queryClient.invalidateQueries({ queryKey: ['agents'] });
+            queryClient.invalidateQueries({ queryKey: ['agent-ids'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
           }
         )
         .subscribe((status, err) => {
           console.log('[Real-time] Agents subscription status:', status, err);
 
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Real-time] Agents subscription active');
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
             console.error('[Real-time] Agents subscription failed, retrying in 2s...', err);
             // Retry connection after 2 seconds
-            retryTimeoutRef.current = setTimeout(() => {
-              setupSubscription();
-            }, 2000);
+            if (isActiveRef.current) {
+              retryTimeoutRef.current = setTimeout(() => {
+                if (isActiveRef.current) {
+                  setupSubscription();
+                }
+              }, 2000);
+            }
           }
         });
     };
 
+    // Handle visibility change (tab/app switching on mobile)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Real-time] Page became visible, reconnecting agents...');
+        // Force reconnect when page becomes visible
+        setTimeout(() => {
+          if (isActiveRef.current) {
+            setupSubscription();
+          }
+        }, 500);
+      }
+    };
+
+    // Handle online/offline events
+    const handleOnline = () => {
+      console.log('[Real-time] Connection restored, reconnecting agents...');
+      setTimeout(() => {
+        if (isActiveRef.current) {
+          setupSubscription();
+        }
+      }, 1000);
+    };
+
     setupSubscription();
+
+    // Add event listeners for mobile reliability
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('focus', handleVisibilityChange);
 
     return () => {
       console.log('[Real-time] Cleaning up agents subscription');
+      isActiveRef.current = false;
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleVisibilityChange);
     };
   }, [userId, queryClient]);
 }
