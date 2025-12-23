@@ -29,8 +29,11 @@ export function useRealtimeMinutes(userId: string | undefined) {
 
       console.log('[Real-time] Setting up minutes subscription for user:', userId);
 
+      // Use unique channel name with timestamp to avoid conflicts
+      const channelName = `client-minutes-${userId}-${Date.now()}`;
+
       channelRef.current = supabase
-        .channel(`client-minutes-${userId}`, {
+        .channel(channelName, {
           config: {
             broadcast: { self: true },
             presence: { key: userId },
@@ -175,8 +178,11 @@ export function useRealtimeCallHistory(userId: string | undefined) {
 
       console.log('[Real-time] Setting up call history subscription for user:', userId);
 
+      // Use unique channel name with timestamp to avoid conflicts
+      const channelName = `call-history-${userId}-${Date.now()}`;
+
       channelRef.current = supabase
-        .channel(`call-history-${userId}`, {
+        .channel(channelName, {
           config: {
             broadcast: { self: true },
             presence: { key: userId },
@@ -309,8 +315,11 @@ export function useRealtimeAgents(userId: string | undefined) {
 
       console.log('[Real-time] Setting up agents subscription for user:', userId);
 
+      // Use unique channel name with timestamp to avoid conflicts
+      const channelName = `agents-${userId}-${Date.now()}`;
+
       channelRef.current = supabase
-        .channel(`agents-${userId}`, {
+        .channel(channelName, {
           config: {
             broadcast: { self: true },
             presence: { key: userId },
