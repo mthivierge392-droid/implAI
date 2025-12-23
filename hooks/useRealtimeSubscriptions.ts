@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { showToast } from '@/components/toast';
 
 /**
  * Global real-time subscription for client minutes updates
@@ -73,13 +74,14 @@ export function useRealtimeCallHistory(agentIds: string[] | undefined, userId: s
           if (agentIds.includes(newCall.retell_agent_id)) {
             console.log('[Real-time] New call received:', newCall);
 
+            // Show toast notification for new call
+            const phoneDisplay = newCall.phone_number || 'Unknown';
+            showToast(`New call from ${phoneDisplay}`, 'info');
+
             // Invalidate call history queries to trigger refetch
             queryClient.invalidateQueries({ queryKey: ['call-history'] });
             queryClient.invalidateQueries({ queryKey: ['calls'] });
             queryClient.invalidateQueries({ queryKey: ['client-minutes', userId] });
-
-            // Optional: Show toast notification (if you want this globally)
-            // showToast(message, 'success');
           }
         }
       )
