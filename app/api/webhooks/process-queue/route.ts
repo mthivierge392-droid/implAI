@@ -104,6 +104,8 @@ export async function POST(request: NextRequest) {
               body: JSON.stringify({
                 inbound_agent_id: fallback_agent_id,
                 outbound_agent_id: fallback_agent_id,
+                inbound_agent_version: null, // Always use latest published version
+                outbound_agent_version: null, // Always use latest published version
                 nickname: 'Number - Out of Minutes',
               }),
             }

@@ -171,6 +171,8 @@ export async function restorePhoneNumberToAgent(
         body: JSON.stringify({
           inbound_agent_id: agentId,
           outbound_agent_id: agentId,
+          inbound_agent_version: null, // Always use latest published version
+          outbound_agent_version: null, // Always use latest published version
           nickname: 'Active Number',
         }),
       }
