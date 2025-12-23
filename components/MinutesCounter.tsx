@@ -3,13 +3,11 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { showToast } from '@/components/toast';
 import { cn } from '@/lib/utils';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useRealtimeMinutes } from '@/hooks/useRealtimeSubscriptions';
 
 export default function MinutesCounter() {
-  const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
 
   // Get user ID
@@ -51,24 +49,8 @@ export default function MinutesCounter() {
     refetchOnWindowFocus: true, // Refetch when user returns to app (mobile)
   });
 
-  // Show toast when minutes change
-  useEffect(() => {
-    // Listen for query updates
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (
-        event.type === 'updated' &&
-        event.query.queryKey[0] === 'client-minutes' &&
-        event.query.queryKey[1] === userId
-      ) {
-        const data = event.query.state.data as any;
-        if (data?.remaining !== undefined) {
-          showToast(`Minutes remaining: ${data.remaining.toLocaleString()}`, 'info');
-        }
-      }
-    });
-
-    return unsubscribe;
-  }, [userId, queryClient]);
+  // Toast notifications are now handled in the real-time subscription hook
+  // to prevent duplicates on page load/refetch
 
   if (isLoading || !minutes) return null;
 

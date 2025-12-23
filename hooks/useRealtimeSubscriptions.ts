@@ -16,6 +16,8 @@ export function useRealtimeMinutes(userId: string | undefined) {
   const channelRef = useRef<any>(null);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isActiveRef = useRef(true);
+  const lastNotificationRef = useRef<number>(0);
+  const NOTIFICATION_COOLDOWN = 2000; // 2 seconds between notifications
 
   useEffect(() => {
     if (!userId) return;
@@ -47,14 +49,28 @@ export function useRealtimeMinutes(userId: string | undefined) {
             table: 'clients',
             filter: `user_id=eq.${userId}`,
           },
-          (payload) => {
+          async (payload) => {
             console.log('[Real-time] Minutes updated:', payload);
+
             // Force immediate refetch of all client/minutes queries across all pages
             queryClient.refetchQueries({ queryKey: ['client-minutes', userId] });
             queryClient.refetchQueries({ queryKey: ['client'] });
             // Also invalidate to mark as stale
             queryClient.invalidateQueries({ queryKey: ['client-minutes'] });
             queryClient.invalidateQueries({ queryKey: ['client'] });
+
+            // Show toast notification with deduplication
+            const now = Date.now();
+            if (now - lastNotificationRef.current > NOTIFICATION_COOLDOWN) {
+              lastNotificationRef.current = now;
+
+              // Get updated minutes from payload
+              const newData = payload.new as any;
+              if (newData?.minutes_included !== undefined && newData?.minutes_used !== undefined) {
+                const remaining = Math.max(0, newData.minutes_included - newData.minutes_used);
+                showToast(`Minutes remaining: ${remaining.toLocaleString()}`, 'info');
+              }
+            }
           }
         )
         .subscribe((status, err) => {
@@ -135,6 +151,7 @@ export function useRealtimeCallHistory(userId: string | undefined) {
   const agentIdsRef = useRef<string[]>([]);
   const isActiveRef = useRef(true);
   const agentIdsFetchedRef = useRef(false);
+  const lastCallNotificationRef = useRef<string>(''); // Track last call ID to prevent duplicates
 
   useEffect(() => {
     if (!userId) return;
@@ -197,14 +214,26 @@ export function useRealtimeCallHistory(userId: string | undefined) {
           },
           (payload) => {
             const newCall = payload.new as any;
+            console.log('[Real-time] Call history INSERT event received:', newCall);
+            console.log('[Real-time] Current agent IDs:', agentIdsRef.current);
+            console.log('[Real-time] Call agent ID:', newCall.retell_agent_id);
 
             // Only process if this call belongs to one of the user's agents
             if (agentIdsRef.current.includes(newCall.retell_agent_id)) {
-              console.log('[Real-time] New call received:', newCall);
+              console.log('[Real-time] ✅ New call received for user agent:', newCall);
 
-              // Show toast notification for new call
-              const phoneDisplay = newCall.phone_number || 'Unknown';
-              showToast(`New call from ${phoneDisplay}`, 'info');
+              // Show toast notification for new call with deduplication
+              const callId = newCall.id || newCall.call_id || '';
+              console.log('[Real-time] Call ID:', callId, 'Last notification ID:', lastCallNotificationRef.current);
+
+              if (callId && lastCallNotificationRef.current !== callId) {
+                lastCallNotificationRef.current = callId;
+                const phoneDisplay = newCall.phone_number || 'Unknown';
+                console.log('[Real-time] 🔔 Showing call notification for:', phoneDisplay);
+                showToast(`New call from ${phoneDisplay}`, 'info');
+              } else {
+                console.log('[Real-time] ⏭️ Skipping duplicate notification');
+              }
 
               // Force immediate refetch of all queries across all pages
               queryClient.refetchQueries({ queryKey: ['calls'] });
