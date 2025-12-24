@@ -1,58 +1,95 @@
 //components/MinutesCounter.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
-import { useRealtimeMinutes } from '@/hooks/useRealtimeSubscriptions';
+import { useAuthStore } from '@/store/authStore';
+import { supabase } from '@/lib/supabase';
 
 export default function MinutesCounter() {
-  const [userId, setUserId] = useState<string | null>(null);
+  // Get user ID from auth store (same as layout) - avoids extra fetch
+  const { user } = useAuthStore();
 
-  // Get user ID
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
-    });
-  }, []);
-
-  // Setup global real-time subscription
-  useRealtimeMinutes(userId || undefined);
+  console.log('[MinutesCounter] Rendering, user:', user?.id);
 
   // Query for minutes data
-  const { data: minutes, isLoading } = useQuery({
-    queryKey: ['client-minutes', userId],
+  const { data: minutes, isLoading, isFetching, isError, error } = useQuery({
+    queryKey: ['client-minutes', user?.id],
     queryFn: async () => {
-      if (!userId) throw new Error('No user');
+      console.log('[MinutesCounter] Fetching minutes for user:', user?.id);
+      if (!user?.id) throw new Error('No user');
 
-      const { data: clientData, error } = await supabase
-        .from('clients')
-        .select('minutes_included, minutes_used')
-        .eq('user_id', userId)
-        .single();
+      try {
+        // Add timeout to prevent indefinite hanging
+        const queryPromise = supabase
+          .from('clients')
+          .select('minutes_included, minutes_used')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (error || !clientData) {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+        );
+
+        const { data: clientData, error: supabaseError } = await Promise.race([
+          queryPromise,
+          timeoutPromise
+        ]) as any;
+
+        console.log('[MinutesCounter] Fetched data:', clientData, 'Supabase Error:', supabaseError);
+
+        if (supabaseError) {
+          console.error('[MinutesCounter] Supabase query error:', supabaseError);
+          // Return default values on error instead of throwing
+          return { included: 0, used: 0, remaining: 0 };
+        }
+
+        if (!clientData) {
+          console.warn('[MinutesCounter] No client data found for user');
+          return { included: 0, used: 0, remaining: 0 };
+        }
+
+        const remaining = Math.max(0, clientData.minutes_included - clientData.minutes_used);
+        const result = {
+          included: clientData.minutes_included,
+          used: clientData.minutes_used,
+          remaining,
+        };
+        console.log('[MinutesCounter] Returning minutes data:', result);
+        return result;
+      } catch (err) {
+        console.error('[MinutesCounter] Query exception:', err);
         return { included: 0, used: 0, remaining: 0 };
       }
-
-      const remaining = Math.max(0, clientData.minutes_included - clientData.minutes_used);
-      return {
-        included: clientData.minutes_included,
-        used: clientData.minutes_used,
-        remaining,
-      };
     },
-    enabled: !!userId,
+    enabled: !!user?.id,
     staleTime: 0, // Always fresh - rely on real-time updates
     refetchOnMount: true,
     refetchOnWindowFocus: true, // Refetch when user returns to app (mobile)
+    retry: 2, // Retry failed queries
+    retryDelay: 1000, // 1 second between retries
   });
+
+  console.log('[MinutesCounter] State:', { minutes, isLoading, isFetching, isError, error });
 
   // Toast notifications are now handled in the real-time subscription hook
   // to prevent duplicates on page load/refetch
 
-  if (isLoading || !minutes) return null;
+  // Show loading skeleton while data is being fetched - prevents component from disappearing
+  if (!minutes || minutes.remaining === undefined) {
+    console.log('[MinutesCounter] Showing loading skeleton');
+    return (
+      <div className="px-2 md:px-4 py-2 border-r border-border flex items-center gap-1.5 md:gap-3">
+        <div className="w-3 h-3 rounded-full bg-muted animate-pulse" />
+        <div className="min-w-0">
+          <div className="h-3 w-16 bg-muted rounded animate-pulse mb-1" />
+          <div className="h-4 w-12 bg-muted rounded animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
+  console.log('[MinutesCounter] Showing actual data:', minutes);
 
   const percentage = minutes.included > 0
     ? Math.max(1, Math.round((minutes.used / minutes.included) * 100))

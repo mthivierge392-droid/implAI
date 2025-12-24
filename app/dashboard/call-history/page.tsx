@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
-import { useRealtimeMinutes, useRealtimeCallHistory } from '@/hooks/useRealtimeSubscriptions';
 
 const ITEMS_PER_PAGE = 50;
 const MAX_SEARCH_LENGTH = 20;
@@ -50,10 +49,6 @@ export default function CallHistoryPage() {
     enabled: !!userId,
     staleTime: API_CONFIG.STALE_TIME,
   });
-
-  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
-  useRealtimeMinutes(userId);
-  useRealtimeCallHistory(userId);
 
   const { data: callsData, isLoading: callsLoading } = useQuery({
     queryKey: ['calls', userId, searchPhone, page],

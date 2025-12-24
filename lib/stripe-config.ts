@@ -9,13 +9,16 @@
  * 2. Create a product (e.g., "100 Minutes")
  * 3. Add a price to the product (e.g., $10 per 100 minutes)
  * 4. Copy the Price ID (starts with price_...)
- * 5. Add it to MINUTE_PACKAGES below
+ * 5. Add to .env.local:
+ *    STRIPE_PRICE_ID=price_1ABC123def456GHI
+ *    STRIPE_MINUTES_PER_UNIT=100
  *
  * EXAMPLE:
  * If you create "100 Minutes" product priced at $10,
  * and the Price ID is "price_1ABC123def456GHI":
  *
- * 'price_1ABC123def456GHI': 100
+ * STRIPE_PRICE_ID=price_1ABC123def456GHI
+ * STRIPE_MINUTES_PER_UNIT=100
  *
  * When customers purchase:
  * - Quantity 1 → 100 minutes
@@ -25,8 +28,12 @@
  * The webhook automatically multiplies based on quantity!
  */
 
+// Load from environment variables
+const priceId = process.env.STRIPE_PRICE_ID || 'price_1ScZiG2NjoUFdMobO1RPBVcq';
+const minutesPerUnit = parseInt(process.env.STRIPE_MINUTES_PER_UNIT || '100', 10);
+
 export const MINUTE_PACKAGES: Record<string, number> = {
-  'price_1ScZiG2NjoUFdMobO1RPBVcq': 100, // 100 Minutes for $10 
+  [priceId]: minutesPerUnit,
 };
 
 /**

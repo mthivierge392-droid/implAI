@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
-import { useRealtimeMinutes, useRealtimeCallHistory, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
 
 export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -54,25 +53,53 @@ export default function AgentsPage() {
   });
 
   // Fetch client minutes status (separate query for real-time updates)
+  // Use different query key to avoid conflicts with MinutesCounter component
   const { data: minutesData } = useQuery({
-    queryKey: ['client-minutes', userId],
+    queryKey: ['agent-status', userId],
     queryFn: async () => {
-      const { data: client } = await supabase
-        .from('clients')
-        .select('minutes_included, minutes_used')
-        .eq('user_id', userId!)
-        .single();
+      try {
+        // Add timeout to prevent indefinite hanging (same as MinutesCounter)
+        const queryPromise = supabase
+          .from('clients')
+          .select('minutes_included, minutes_used')
+          .eq('user_id', userId!)
+          .maybeSingle();
 
-      if (!client) return { hasMinutes: false };
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 5 seconds')), 5000)
+        );
 
-      const remaining = Math.max(0, client.minutes_included - client.minutes_used);
-      return { hasMinutes: remaining > 0 };
+        const { data: client, error } = await Promise.race([
+          queryPromise,
+          timeoutPromise
+        ]) as any;
+
+        if (error) {
+          console.error('[Agents Page] Client query error:', error);
+          return { hasMinutes: false };
+        }
+
+        if (!client) {
+          console.warn('[Agents Page] No client data found');
+          return { hasMinutes: false };
+        }
+
+        const remaining = Math.max(0, client.minutes_included - client.minutes_used);
+        return { hasMinutes: remaining > 0 };
+      } catch (err) {
+        console.error('[Agents Page] Query exception:', err);
+        return { hasMinutes: false };
+      }
     },
     enabled: !!userId,
-    staleTime: Infinity, // Cache forever - rely on real-time updates
+    staleTime: 0, // Always refetch - rely on real-time updates to trigger
+    refetchOnWindowFocus: true,
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  const hasMinutes = minutesData?.hasMinutes ?? false;
+  // Default to true (Active) until we have actual data - prevents "paused" flash during loading
+  const hasMinutes = minutesData?.hasMinutes ?? true;
 
   // Fetch agents with React Query (cache forever, rely on real-time updates)
   const { data: agents = [], isLoading } = useQuery({
@@ -90,11 +117,6 @@ export default function AgentsPage() {
     enabled: !!userId,
     staleTime: Infinity, // Cache forever - rely on real-time updates
   });
-
-  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
-  useRealtimeMinutes(userId);
-  useRealtimeCallHistory(userId);
-  useRealtimeAgents(userId);
 
   const handleEditPrompt = (agent: Agent) => {
     setSelectedAgent(agent);

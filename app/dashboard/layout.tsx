@@ -11,14 +11,15 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { MobileNav } from '@/components/mobile-nav';
 import { StripeBanner } from '@/components/StripeBanner';
 import { Footer } from '@/components/Footer';
-import { 
-  LayoutDashboard, 
-  Cpu, 
-  Phone, 
+import {
+  LayoutDashboard,
+  Cpu,
+  Phone,
   LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useRealtimeMinutes, useRealtimeCallHistory, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
 
 export default function DashboardLayout({
   children,
@@ -28,6 +29,11 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, setUser, loading, setLoading } = useAuthStore();
   const pathname = usePathname();
+
+  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Set up once in layout for all pages
+  useRealtimeMinutes(user?.id);
+  useRealtimeCallHistory(user?.id);
+  useRealtimeAgents(user?.id);
 
   useEffect(() => {
     const checkUser = async () => {

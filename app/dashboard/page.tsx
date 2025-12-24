@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
-import { useRealtimeMinutes, useRealtimeCallHistory, useRealtimeAgents } from '@/hooks/useRealtimeSubscriptions';
 
 interface Stats {
   totalCalls: number;
@@ -19,22 +18,6 @@ interface Stats {
 }
 
 export default function DashboardOverview() {
-  // Get user ID for real-time subscriptions
-  const { data: userId } = useQuery({
-    queryKey: ['user-id'],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      return user.id;
-    },
-    staleTime: Infinity,
-  });
-
-  // ✅ GLOBAL REAL-TIME SUBSCRIPTIONS - Work across all pages
-  useRealtimeMinutes(userId);
-  useRealtimeCallHistory(userId);
-  useRealtimeAgents(userId);
-
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchStats,
