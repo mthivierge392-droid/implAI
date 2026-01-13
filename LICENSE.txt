@@ -1,0 +1,53 @@
+MIT License
+
+Copyright (c) 2025 AI Phone Agents Dashboard
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, and/or distribute copies of the Software,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+ADDITIONAL TERMS FOR COMMERCIAL DISTRIBUTION:
+
+1. This software is sold as-is with no warranty or guarantee of any kind.
+
+2. The buyer receives a perpetual, non-exclusive license to:
+   - Use this code for unlimited personal projects
+   - Use this code for unlimited commercial projects
+   - Modify and customize the code as needed
+   - Deploy to production environments
+   - Create derivative works
+
+3. The buyer may NOT:
+   - Resell or redistribute the source code itself (as a product/template)
+   - Claim this code as their own original work
+   - Remove or modify this license file
+   - Sue the creator for any damages or issues arising from use
+
+4. Support and updates are provided as outlined in the specific purchase tier.
+
+5. No refunds are provided for digital products after download, as per standard
+   digital goods policy.
+
+6. The creator reserves the right to sell this product to multiple buyers.
+
+7. Future updates (if any) will be provided according to the terms specified
+   at the time of purchase.
+
+---
+
+For questions about licensing, contact the seller through your purchase platform.

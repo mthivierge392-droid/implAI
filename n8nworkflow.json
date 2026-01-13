@@ -1,0 +1,126 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "56280ae7-94b3-4679-9d10-3f0b95317ee8",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [160, 0],
+      "id": "b1d13893-e837-45f9-8429-0a8894e618a9",
+      "name": "Webhook",
+      "webhookId": "56280ae7-94b3-4679-9d10-3f0b95317ee8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e067a11b-6666-427a-861c-24c316c3b5da",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "call_analyzed",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [576, 0],
+      "id": "3fcf8772-0282-46ae-80a7-5d1897b15e78",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "call_history",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone_number": "={{ $json.body.call.from_number }}",
+            "retell_agent_id": "={{ $json.body.call.agent_id }}",
+            "transcript": "={{ $json.body.call.transcript }}",
+            "retell_call_id": "={{ $json.body.call.call_id }}",
+            "call_duration_seconds": "={{ $('Webhook').item.json.body.call.call_cost.total_duration_seconds }}",
+            "call_status": "=completed"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [944, -16],
+      "id": "ae4341ec-42b9-4799-9c83-70449fd0f36b",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "Gmq3671CPSeiSxXu",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1104, 176],
+      "id": "33b751ba-7034-4782-a3e5-90f2bc03c0f9",
+      "name": "No Operation, do nothing"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "4e6e6a15d6b9fa988cf74d1efccafb498e02c7d74d088f75f103b1530998344d"
+  }
+}
