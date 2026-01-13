@@ -21,11 +21,12 @@ const RETELL_API_KEY = process.env.RETELL_API_KEY!;
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.text();
+    const payload = await req.json();
     const signature = req.headers.get('x-retell-signature');
 
     // Verify webhook signature for security using official Retell SDK
-    if (!Retell.verify(body, RETELL_API_KEY, signature || '')) {
+    // Note: Must stringify the parsed JSON body for verification
+    if (!Retell.verify(JSON.stringify(payload), RETELL_API_KEY, signature || '')) {
       console.error('❌ Invalid Retell webhook signature');
       return NextResponse.json(
         { error: 'Invalid signature' },
@@ -33,7 +34,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payload = JSON.parse(body);
     const { event, call } = payload;
 
     console.log(`📞 Retell webhook received: ${event} for call ${call?.call_id}`);
