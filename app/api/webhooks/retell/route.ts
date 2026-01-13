@@ -119,10 +119,17 @@ function verifyRetellSignature(body: string, signature: string | null): boolean 
   }
 
   try {
+    console.log('🔍 Debug - API Key exists:', !!RETELL_API_KEY);
+    console.log('🔍 Debug - API Key length:', RETELL_API_KEY?.length);
+    console.log('🔍 Debug - Received signature length:', signature.length);
+
     // Create HMAC using Retell API key
     const hmac = crypto.createHmac('sha256', RETELL_API_KEY);
     hmac.update(body);
     const expectedSignature = hmac.digest('hex');
+
+    console.log('🔍 Debug - Expected signature length:', expectedSignature.length);
+    console.log('🔍 Debug - Signatures match:', signature === expectedSignature);
 
     // Compare signatures (timing-safe comparison)
     return crypto.timingSafeEqual(
