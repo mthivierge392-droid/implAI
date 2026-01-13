@@ -1,7 +1,7 @@
 // app/api/webhooks/retell/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+import { Retell } from 'retell-sdk';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     const signature = req.headers.get('x-retell-signature');
 
-    // Verify webhook signature for security
-    if (!verifyRetellSignature(body, signature)) {
+    // Verify webhook signature for security using official Retell SDK
+    if (!Retell.verify(body, RETELL_API_KEY, signature || '')) {
       console.error('❌ Invalid Retell webhook signature');
       return NextResponse.json(
         { error: 'Invalid signature' },
@@ -105,39 +105,6 @@ export async function POST(req: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Verify Retell webhook signature using HMAC-SHA256
- * This ensures the webhook is actually from Retell AI
- */
-function verifyRetellSignature(body: string, signature: string | null): boolean {
-  if (!signature) {
-    console.warn('⚠️ No signature provided in webhook');
-    return false;
-  }
-
-  try {
-    // Create HMAC using Retell API key
-    const hmac = crypto.createHmac('sha256', RETELL_API_KEY);
-    hmac.update(body);
-    const expectedSignature = hmac.digest('base64');
-
-    // Retell sends signature in base64 format
-    // Simple string comparison for base64 signatures
-    const isValid = signature === expectedSignature;
-
-    if (!isValid) {
-      console.error('❌ Signature mismatch');
-      console.log('Expected (base64):', expectedSignature);
-      console.log('Received:', signature);
-    }
-
-    return isValid;
-  } catch (error) {
-    console.error('❌ Error verifying signature:', error);
-    return false;
   }
 }
 
