@@ -53,7 +53,7 @@ export default function SignUpPage() {
           data: {
             company_name: companyName || null,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback`,
         }
       });
 
