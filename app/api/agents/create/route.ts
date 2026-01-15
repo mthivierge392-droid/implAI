@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
       retell_llm_id,
       voice,
       language,
-      begin_sentence,
     } = body;
 
     // Validate required fields
@@ -98,7 +97,6 @@ export async function POST(request: NextRequest) {
           llm_id: llmId,
         },
         webhook_url: webhookUrl,
-        begin_message: begin_sentence || 'Hello',
       }),
     });
 
@@ -127,7 +125,6 @@ export async function POST(request: NextRequest) {
         prompt: prompt || null,
         voice: voice || '11labs-Adrian',
         language: language || 'en-US',
-        begin_sentence: begin_sentence || 'Hello',
       })
       .select()
       .single();

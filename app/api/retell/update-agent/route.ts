@@ -191,41 +191,6 @@ export async function PATCH(request: NextRequest) {
       console.warn('Agent updated but not published. User may need to manually publish in Retell dashboard.');
     } else {
       console.log('Agent published successfully');
-
-      // After publishing, update phone number to ensure it uses latest version
-      // First, get the agent's phone number from database
-      const { data: agentWithPhone } = await serviceSupabase
-        .from('agents')
-        .select('twilio_number')
-        .eq('id', agent.id)
-        .single();
-
-      if (agentWithPhone?.twilio_number) {
-        console.log(`Updating phone number ${agentWithPhone.twilio_number} to use latest version...`);
-        const phoneUpdateResponse = await fetch(
-          `https://api.retellai.com/update-phone-number/${encodeURIComponent(agentWithPhone.twilio_number)}`,
-          {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              inbound_agent_id: agent_id,
-              outbound_agent_id: agent_id,
-              inbound_agent_version: null, // Use latest published version
-              outbound_agent_version: null, // Use latest published version
-            }),
-          }
-        );
-
-        if (!phoneUpdateResponse.ok) {
-          const phoneError = await phoneUpdateResponse.text();
-          console.error('Failed to update phone number version binding:', phoneError);
-        } else {
-          console.log('✅ Phone number updated to use latest published version');
-        }
-      }
     }
 
     // Update voice and/or language in database if provided

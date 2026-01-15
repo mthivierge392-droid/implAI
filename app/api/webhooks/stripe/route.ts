@@ -2,9 +2,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { MINUTE_PACKAGES, validateStripeConfig } from '@/lib/stripe-config';
-import { findUserIdByEmail, addMinutesToClient, getUserAgentInfo, restorePhoneNumberToAgent } from '@/lib/supabase-helpers';
+import { findUserIdByEmail, addMinutesToClient } from '@/lib/supabase-helpers';
 import { twilioClient } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
+import { restoreAllNumbersToRealAgents } from '@/lib/phone-number-helpers';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -149,20 +150,21 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     `✅ Successfully added ${totalMinutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
-  // Step 3: Instantly restore phone to real agent (if user has Twilio number)
-  const agentInfo = await getUserAgentInfo(userId);
-
-  if (agentInfo) {
-    const restored = await restorePhoneNumberToAgent(
-      agentInfo.retell_agent_id,
-      agentInfo.twilio_number
-    );
-
-    if (!restored) {
-      console.warn('⚠️ Phone restoration failed, but minutes were added successfully');
+  // Step 3: Restore ALL phone numbers back to their real agents
+  try {
+    const result = await restoreAllNumbersToRealAgents(userId);
+    if (result.success > 0) {
+      console.log(`✅ Restored ${result.success} phone number(s) to real agents`);
     }
-  } else {
-    console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');
+    if (result.failed > 0) {
+      console.warn(`⚠️ Failed to restore ${result.failed} phone number(s)`);
+    }
+    if (result.success === 0 && result.failed === 0) {
+      console.log('ℹ️ No phone numbers to restore for this user');
+    }
+  } catch (error) {
+    console.error('❌ Error restoring phone numbers:', error);
+    // Don't throw - minutes were already added successfully
   }
 
   // Optional: Log the transaction for audit purposes
@@ -214,20 +216,21 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     `✅ Successfully added ${minutesToAdd} minutes to ${customerEmail} (${userId}). New total: ${newMinutesTotal} minutes`
   );
 
-  // Instantly restore phone to real agent (if user has Twilio number)
-  const agentInfo = await getUserAgentInfo(userId);
-
-  if (agentInfo) {
-    const restored = await restorePhoneNumberToAgent(
-      agentInfo.retell_agent_id,
-      agentInfo.twilio_number
-    );
-
-    if (!restored) {
-      console.warn('⚠️ Phone restoration failed, but minutes were added successfully');
+  // Restore ALL phone numbers back to their real agents
+  try {
+    const result = await restoreAllNumbersToRealAgents(userId);
+    if (result.success > 0) {
+      console.log(`✅ Restored ${result.success} phone number(s) to real agents`);
     }
-  } else {
-    console.log('ℹ️ No Twilio number configured for this user - skipping phone restoration');
+    if (result.failed > 0) {
+      console.warn(`⚠️ Failed to restore ${result.failed} phone number(s)`);
+    }
+    if (result.success === 0 && result.failed === 0) {
+      console.log('ℹ️ No phone numbers to restore for this user');
+    }
+  } catch (error) {
+    console.error('❌ Error restoring phone numbers:', error);
+    // Don't throw - minutes were already added successfully
   }
 
   await logTransaction(userId, minutesToAdd, paymentIntent.id, paymentIntent.amount);

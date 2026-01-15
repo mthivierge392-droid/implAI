@@ -24,7 +24,6 @@ export type Agent = {
   prompt: string;
   voice: string;
   language?: string;
-  begin_sentence: string;
   created_at: string;
   updated_at: string;
 };
@@ -48,7 +47,6 @@ export type PhoneNumber = {
   twilio_sid: string;
   monthly_cost: number;
   stripe_subscription_item_id: string | null;
-  status: 'active' | 'releasing' | 'released';
   created_at: string;
   updated_at: string;
 };

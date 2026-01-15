@@ -16,9 +16,11 @@ CREATE TABLE IF NOT EXISTS public.clients (
   minutes_included integer NOT NULL DEFAULT 0,
   minutes_used integer NOT NULL DEFAULT 0,
   stripe_customer_id text UNIQUE,
+  phone_status text NOT NULL DEFAULT 'active',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   PRIMARY KEY (id),
-  UNIQUE (user_id)
+  UNIQUE (user_id),
+  CONSTRAINT clients_phone_status_check CHECK (phone_status IN ('active', 'inactive'))
 );
 
 
@@ -31,9 +33,6 @@ CREATE TABLE IF NOT EXISTS public.agents (
   prompt text,
   voice text DEFAULT '11labs-Adrian'::text,
   language text DEFAULT 'en-US'::text,
-  begin_sentence text DEFAULT 'Hello'::text,
-  twilio_number text,
-  fallback_agent_id text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   PRIMARY KEY (id),
@@ -57,21 +56,6 @@ CREATE TABLE IF NOT EXISTS public.call_history (
 );
 
 
-CREATE TABLE IF NOT EXISTS public.webhook_jobs (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  client_id uuid NOT NULL,
-  job_type text NOT NULL,
-  status text NOT NULL DEFAULT 'pending',
-  payload jsonb NOT NULL,
-  retry_count integer DEFAULT 0,
-  error_message text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  PRIMARY KEY (id),
-  CONSTRAINT webhook_jobs_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(user_id) ON DELETE CASCADE
-);
-
-
 CREATE TABLE IF NOT EXISTS public.phone_numbers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   client_id uuid NOT NULL,
@@ -80,13 +64,11 @@ CREATE TABLE IF NOT EXISTS public.phone_numbers (
   twilio_sid text NOT NULL UNIQUE,
   monthly_cost numeric(10,2) NOT NULL DEFAULT 1.15,
   stripe_subscription_item_id text,
-  status text NOT NULL DEFAULT 'active',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   PRIMARY KEY (id),
   CONSTRAINT phone_numbers_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(user_id) ON DELETE CASCADE,
-  CONSTRAINT phone_numbers_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE SET NULL,
-  CONSTRAINT phone_numbers_status_check CHECK (status IN ('active', 'releasing', 'released'))
+  CONSTRAINT phone_numbers_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.agents(id) ON DELETE SET NULL
 );
 
 
@@ -97,7 +79,6 @@ CREATE TABLE IF NOT EXISTS public.phone_numbers (
 ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.call_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.webhook_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.phone_numbers ENABLE ROW LEVEL SECURITY;
 
 
@@ -105,7 +86,7 @@ ALTER TABLE public.phone_numbers ENABLE ROW LEVEL SECURITY;
 -- 3. FUNCTIONS
 -- ========================================
 
--- Deduct minutes and trigger webhook job when minutes run out
+-- Deduct minutes from client when call completes
 CREATE OR REPLACE FUNCTION public.deduct_minutes()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -113,12 +94,10 @@ DECLARE
   minutes_to_add numeric;
   minutes_included_val integer;
   minutes_used_val integer;
-  twilio_num text;
-  fall_agent_id text;
 BEGIN
-  -- Get agent details with row lock for consistency
-  SELECT a.client_id, a.twilio_number, a.fallback_agent_id
-  INTO target_client_id, twilio_num, fall_agent_id
+  -- Get agent's client_id with row lock for consistency
+  SELECT a.client_id
+  INTO target_client_id
   FROM agents a
   WHERE a.retell_agent_id = NEW.retell_agent_id
   FOR UPDATE;
@@ -136,20 +115,7 @@ BEGIN
   WHERE user_id = target_client_id
   RETURNING minutes_included, minutes_used INTO minutes_included_val, minutes_used_val;
 
-  -- If out of minutes and has fallback configured, create reassignment job
-  IF minutes_used_val >= minutes_included_val AND twilio_num IS NOT NULL AND fall_agent_id IS NOT NULL THEN
-    INSERT INTO webhook_jobs (client_id, job_type, status, payload)
-    VALUES (
-      target_client_id,
-      'reassign_number',
-      'pending',
-      jsonb_build_object(
-        'phone_number', twilio_num,
-        'fallback_agent_id', fall_agent_id,
-        'triggered_by_call_id', NEW.id
-      )
-    );
-  END IF;
+  -- Minutes tracking only - phone number switching handled by webhooks
 
   RETURN NEW;
 END;
@@ -196,13 +162,6 @@ EXECUTE FUNCTION public.deduct_minutes();
 DROP TRIGGER IF EXISTS trigger_update_updated_at_column ON public.agents;
 CREATE TRIGGER trigger_update_updated_at_column
 BEFORE UPDATE ON public.agents
-FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column();
-
-
-DROP TRIGGER IF EXISTS trigger_update_webhook_jobs_updated_at ON public.webhook_jobs;
-CREATE TRIGGER trigger_update_webhook_jobs_updated_at
-BEFORE UPDATE ON public.webhook_jobs
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
@@ -300,22 +259,6 @@ USING (true)
 WITH CHECK (true);
 
 
--- Drop existing webhook job policies
-DROP POLICY IF EXISTS "Users can view their jobs" ON public.webhook_jobs;
-DROP POLICY IF EXISTS "Service role can manage jobs" ON public.webhook_jobs;
-
--- WEBHOOK JOBS TABLE POLICIES
-CREATE POLICY "Users can view their jobs" ON public.webhook_jobs
-FOR SELECT TO authenticated, anon
-USING (client_id = auth.uid());
-
--- Allow service role full access for cron jobs
-CREATE POLICY "Service role can manage jobs" ON public.webhook_jobs
-FOR ALL TO service_role
-USING (true)
-WITH CHECK (true);
-
-
 -- Drop existing phone number policies
 DROP POLICY IF EXISTS "Users can view their phone numbers" ON public.phone_numbers;
 DROP POLICY IF EXISTS "Users can create phone numbers" ON public.phone_numbers;
@@ -349,23 +292,7 @@ WITH CHECK (true);
 
 
 -- ========================================
--- 6. PERMISSIONS
--- ========================================
-
--- Grant permissions to postgres role for n8n
-GRANT INSERT ON public.call_history TO postgres;
-GRANT SELECT ON public.agents TO postgres;
-GRANT SELECT ON public.clients TO postgres;
-GRANT UPDATE ON public.clients TO postgres;
-GRANT INSERT ON public.webhook_jobs TO postgres;
-GRANT SELECT ON public.webhook_jobs TO postgres;
-GRANT UPDATE ON public.webhook_jobs TO postgres;
-GRANT EXECUTE ON FUNCTION public.deduct_minutes() TO postgres;
-GRANT EXECUTE ON FUNCTION public.get_remaining_minutes(uuid) TO postgres;
-
-
--- ========================================
--- 7. PERFORMANCE INDEXES
+-- 6. PERFORMANCE INDEXES
 -- ========================================
 
 -- Drop indexes if they exist (for clean redeployment)
@@ -373,13 +300,10 @@ DROP INDEX IF EXISTS idx_clients_user_id;
 DROP INDEX IF EXISTS idx_clients_stripe_customer_id;
 DROP INDEX IF EXISTS idx_agents_retell_agent_id;
 DROP INDEX IF EXISTS idx_agents_client_id;
-DROP INDEX IF EXISTS idx_agents_twilio_number;
 DROP INDEX IF EXISTS idx_call_history_retell_agent_id;
 DROP INDEX IF EXISTS idx_call_history_created_at;
 DROP INDEX IF EXISTS idx_call_history_agent_created;
 DROP INDEX IF EXISTS idx_agents_rls_lookup;
-DROP INDEX IF EXISTS idx_webhook_jobs_pending;
-DROP INDEX IF EXISTS idx_webhook_jobs_client;
 DROP INDEX IF EXISTS idx_phone_numbers_client_id;
 DROP INDEX IF EXISTS idx_phone_numbers_agent_id;
 DROP INDEX IF EXISTS idx_phone_numbers_phone_number;
@@ -391,7 +315,6 @@ CREATE INDEX idx_clients_stripe_customer_id ON public.clients(stripe_customer_id
 -- Agent indexes
 CREATE INDEX idx_agents_retell_agent_id ON public.agents(retell_agent_id);
 CREATE INDEX idx_agents_client_id ON public.agents(client_id);
-CREATE INDEX idx_agents_twilio_number ON public.agents(twilio_number) WHERE twilio_number IS NOT NULL;
 
 -- Call history indexes
 CREATE INDEX idx_call_history_retell_agent_id ON public.call_history(retell_agent_id);
@@ -401,10 +324,6 @@ CREATE INDEX idx_call_history_agent_created ON public.call_history(retell_agent_
 -- Composite index for RLS policy lookups
 CREATE INDEX idx_agents_rls_lookup ON public.agents(retell_agent_id, client_id);
 
--- Webhook job indexes
-CREATE INDEX idx_webhook_jobs_pending ON public.webhook_jobs(status) WHERE status = 'pending';
-CREATE INDEX idx_webhook_jobs_client ON public.webhook_jobs(client_id);
-
 -- Phone number indexes
 CREATE INDEX idx_phone_numbers_client_id ON public.phone_numbers(client_id);
 CREATE INDEX idx_phone_numbers_agent_id ON public.phone_numbers(agent_id);
@@ -412,7 +331,7 @@ CREATE INDEX idx_phone_numbers_phone_number ON public.phone_numbers(phone_number
 
 
 -- ========================================
--- 8. ENABLE REALTIME
+-- 7. ENABLE REALTIME
 -- ========================================
 
 -- Enable realtime for tables (ignore errors if already added)

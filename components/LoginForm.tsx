@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ContactForm from '@/components/ContactForm';
 import { siteConfig } from '@/config/site';
+import Link from 'next/link';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePassword = (password: string) => password.length >= 6;
@@ -127,6 +128,15 @@ export default function LoginForm() {
           {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
         </div>
 
+        <div className="flex justify-end">
+          <Link
+            href="/auth/forgot-password"
+            className="text-sm text-primary hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
         <Button
           type="submit"
           className="w-full"
@@ -136,6 +146,17 @@ export default function LoginForm() {
           <LogIn size={18} />
           {siteConfig.login.loginButton}
         </Button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              Or
+            </span>
+          </div>
+        </div>
 
         <Button
           type="button"
@@ -147,6 +168,13 @@ export default function LoginForm() {
           <Mail size={18} />
           {siteConfig.login.contactButton}
         </Button>
+
+        <p className="text-center text-sm text-muted-foreground">
+          Don't have an account?{' '}
+          <Link href="/auth/signup" className="text-primary hover:underline font-medium">
+            Sign up
+          </Link>
+        </p>
       </form>
 
       {showContactForm && (

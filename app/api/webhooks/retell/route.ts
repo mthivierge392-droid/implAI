@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Retell } from 'retell-sdk';
+import { switchAllNumbersToFallback } from '@/lib/phone-number-helpers';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -94,6 +95,25 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`✅ Successfully stored call history for client ${agent.client_id}`);
+
+    // Step 3: Check if client ran out of minutes and switch to fallback
+    const { data: clientData } = await supabaseAdmin
+      .from('clients')
+      .select('minutes_included, minutes_used')
+      .eq('user_id', agent.client_id)
+      .single();
+
+    if (clientData && clientData.minutes_used >= clientData.minutes_included) {
+      console.log(`⚠️ Client ${agent.client_id} is out of minutes (${clientData.minutes_used}/${clientData.minutes_included})`);
+
+      try {
+        // Switch all numbers to fallback TwiML Bin
+        const result = await switchAllNumbersToFallback(agent.client_id);
+        console.log(`🔄 Switched ${result.success} number(s) to fallback, ${result.failed} failed`);
+      } catch (error) {
+        console.error('❌ Failed to switch numbers to fallback:', error);
+      }
+    }
 
     // Return 204 No Content to acknowledge successful processing
     return new NextResponse(null, { status: 204 });
