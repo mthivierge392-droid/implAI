@@ -568,6 +568,127 @@ export default function AgentsPage() {
             Create Your First Agent
           </Button>
         </div>
+
+        {/* Create Agent Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-border">
+              <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background">
+                <h2 className="text-xl font-semibold text-foreground">Create New Agent</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCreateModal(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Agent Name */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Agent Name <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newAgentName}
+                    onChange={(e) => setNewAgentName(e.target.value)}
+                    placeholder="e.g., Customer Support Agent"
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring outline-none"
+                  />
+                </div>
+
+                {/* Prompt */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    System Prompt (Optional)
+                  </label>
+                  <textarea
+                    value={newAgentPrompt}
+                    onChange={(e) => setNewAgentPrompt(e.target.value)}
+                    placeholder="Define your agent's personality, role, and instructions..."
+                    rows={6}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring outline-none resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You can edit this later in agent settings
+                  </p>
+                </div>
+
+                {/* Voice Selection */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Voice
+                  </label>
+                  <select
+                    value={newAgentVoice}
+                    onChange={(e) => setNewAgentVoice(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring outline-none"
+                  >
+                    <option value="11labs-Adrian">Adrian (Male)</option>
+                    <option value="11labs-Aria">Aria (Female)</option>
+                    <option value="11labs-Fin">Fin (Male)</option>
+                    <option value="11labs-Sarah">Sarah (Female)</option>
+                    <option value="openai-Alloy">Alloy (Neutral)</option>
+                    <option value="openai-Echo">Echo (Male)</option>
+                    <option value="openai-Nova">Nova (Female)</option>
+                  </select>
+                </div>
+
+                {/* Language Selection */}
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-2">
+                    Language
+                  </label>
+                  <select
+                    value={newAgentLanguage}
+                    onChange={(e) => setNewAgentLanguage(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-lg focus:ring-2 focus:ring-ring focus:border-ring outline-none"
+                  >
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="es-ES">Spanish (Spain)</option>
+                    <option value="es-MX">Spanish (Mexico)</option>
+                    <option value="fr-FR">French</option>
+                    <option value="de-DE">German</option>
+                    <option value="it-IT">Italian</option>
+                    <option value="pt-BR">Portuguese (Brazil)</option>
+                    <option value="ja-JP">Japanese</option>
+                    <option value="ko-KR">Korean</option>
+                    <option value="zh-CN">Chinese (Simplified)</option>
+                  </select>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 p-6 border-t border-border">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreateModal(false)}
+                  disabled={creating}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateAgent}
+                  disabled={creating || !newAgentName.trim()}
+                  className="flex-1"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : 'Create Agent'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
