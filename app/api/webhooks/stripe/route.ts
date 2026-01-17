@@ -317,7 +317,6 @@ async function handlePhoneNumberSubscription(session: Stripe.Checkout.Session) {
         twilio_sid: twilioNumber.sid,
         monthly_cost: 1.15,
         stripe_subscription_item_id: subscriptionItemId,
-        status: 'active',
       });
 
     if (dbError) {

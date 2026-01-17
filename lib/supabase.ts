@@ -9,9 +9,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export type Client = {
   id: string;
   user_id: string;
-  retell_agent_id: string | null;
   company_name: string | null;
   email: string | null;
+  minutes_included: number;
+  minutes_used: number;
+  stripe_customer_id: string | null;
+  phone_status: 'active' | 'inactive';
   created_at: string;
 };
 

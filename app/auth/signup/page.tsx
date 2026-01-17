@@ -45,8 +45,8 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // Sign up with Supabase
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // Sign up with Supabase (client record created automatically by database trigger)
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -58,24 +58,6 @@ export default function SignUpPage() {
       });
 
       if (signUpError) throw signUpError;
-
-      // Create client record
-      if (data.user) {
-        const { error: clientError } = await supabase
-          .from('clients')
-          .insert({
-            user_id: data.user.id,
-            email: email,
-            company_name: companyName || null,
-            minutes_included: 0,
-            minutes_used: 0,
-          });
-
-        if (clientError) {
-          console.error('Client creation error:', clientError);
-          // Don't fail signup if client creation fails - admin can fix this
-        }
-      }
 
       setSuccess(true);
       showToast('Account created successfully! Please check your email to verify your account.', 'success');

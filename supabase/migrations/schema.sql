@@ -1,6 +1,6 @@
 -- ========================================
 -- PRODUCTION-READY SAAS SCHEMA
--- Optimized for performance, security, and real-time updates
+-- Final version - Optimized for performance, security, and real-time
 -- ========================================
 
 
@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.clients (
   phone_status text NOT NULL DEFAULT 'active',
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   PRIMARY KEY (id),
-  UNIQUE (user_id),
   CONSTRAINT clients_phone_status_check CHECK (phone_status IN ('active', 'inactive'))
 );
 
@@ -92,15 +91,11 @@ RETURNS TRIGGER AS $$
 DECLARE
   target_client_id uuid;
   minutes_to_add numeric;
-  minutes_included_val integer;
-  minutes_used_val integer;
 BEGIN
-  -- Get agent's client_id with row lock for consistency
-  SELECT a.client_id
-  INTO target_client_id
+  -- Get agent's client_id
+  SELECT a.client_id INTO target_client_id
   FROM agents a
-  WHERE a.retell_agent_id = NEW.retell_agent_id
-  FOR UPDATE;
+  WHERE a.retell_agent_id = NEW.retell_agent_id;
 
   IF target_client_id IS NULL THEN
     RAISE EXCEPTION 'No agent found for call: %', NEW.retell_agent_id;
@@ -112,10 +107,7 @@ BEGIN
   -- Update client minutes
   UPDATE clients
   SET minutes_used = minutes_used + minutes_to_add
-  WHERE user_id = target_client_id
-  RETURNING minutes_included, minutes_used INTO minutes_included_val, minutes_used_val;
-
-  -- Minutes tracking only - phone number switching handled by webhooks
+  WHERE user_id = target_client_id;
 
   RETURN NEW;
 END;
@@ -132,18 +124,33 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- Get remaining minutes for a user
-CREATE OR REPLACE FUNCTION public.get_remaining_minutes(user_uuid uuid)
-RETURNS integer AS $$
-DECLARE
-  remaining integer;
+-- Automatically create client record when user signs up
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
 BEGIN
-  SELECT (minutes_included - minutes_used)
-  INTO remaining
-  FROM clients
-  WHERE user_id = user_uuid;
+  INSERT INTO public.clients (user_id, email, company_name, minutes_included, minutes_used, phone_status)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    NEW.raw_user_meta_data->>'company_name',
+    0,
+    0,
+    'active'
+  );
+  RETURN NEW;
+EXCEPTION
+  WHEN unique_violation THEN
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-  RETURN GREATEST(0, COALESCE(remaining, 0));
+
+-- Automatically delete client record when user is deleted (CASCADE to agents, calls, phone_numbers)
+CREATE OR REPLACE FUNCTION public.handle_user_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  DELETE FROM public.clients WHERE user_id = OLD.id;
+  RETURN OLD;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -152,139 +159,151 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 4. TRIGGERS
 -- ========================================
 
+-- Deduct minutes when call is inserted
 DROP TRIGGER IF EXISTS trigger_deduct_minutes ON public.call_history;
 CREATE TRIGGER trigger_deduct_minutes
 AFTER INSERT ON public.call_history
 FOR EACH ROW
 EXECUTE FUNCTION public.deduct_minutes();
 
-
+-- Update timestamps on agents
 DROP TRIGGER IF EXISTS trigger_update_updated_at_column ON public.agents;
 CREATE TRIGGER trigger_update_updated_at_column
 BEFORE UPDATE ON public.agents
 FOR EACH ROW
 EXECUTE FUNCTION public.update_updated_at_column();
 
+-- Update timestamps on phone_numbers
+DROP TRIGGER IF EXISTS trigger_update_phone_numbers_updated_at ON public.phone_numbers;
+CREATE TRIGGER trigger_update_phone_numbers_updated_at
+BEFORE UPDATE ON public.phone_numbers
+FOR EACH ROW
+EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Auto-create client when user signs up
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_user();
+
+-- Auto-delete client when user is deleted (cascades to all related data)
+DROP TRIGGER IF EXISTS on_auth_user_deleted ON auth.users;
+CREATE TRIGGER on_auth_user_deleted
+BEFORE DELETE ON auth.users
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_user_delete();
+
 
 -- ========================================
--- 5. RLS POLICIES - CRITICAL FIX
+-- 5. RLS POLICIES
 -- ========================================
 
--- Drop existing policies to ensure clean state
+-- Clean slate for policies
 DROP POLICY IF EXISTS "Users can view own client record" ON public.clients;
 DROP POLICY IF EXISTS "Users can insert own client record" ON public.clients;
 DROP POLICY IF EXISTS "Users can update own client record" ON public.clients;
 DROP POLICY IF EXISTS "Service role can manage clients" ON public.clients;
 
--- CLIENTS TABLE POLICIES
--- Allow authenticated users to view their own client record
+-- CLIENTS TABLE POLICIES (authenticated users only)
 CREATE POLICY "Users can view own client record" ON public.clients
-FOR SELECT TO authenticated, anon
+FOR SELECT TO authenticated
 USING (auth.uid() = user_id);
 
--- Allow users to insert their own client record
-CREATE POLICY "Users can insert own client record" ON public.clients
-FOR INSERT TO authenticated, anon
-WITH CHECK (auth.uid() = user_id);
-
--- Allow users to update their own client record
 CREATE POLICY "Users can update own client record" ON public.clients
-FOR UPDATE TO authenticated, anon
+FOR UPDATE TO authenticated
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
 
--- CRITICAL: Allow service role to bypass RLS for Stripe webhooks and server operations
 CREATE POLICY "Service role can manage clients" ON public.clients
 FOR ALL TO service_role
 USING (true)
 WITH CHECK (true);
 
 
--- Drop existing agent policies
+-- Clean slate for agent policies
 DROP POLICY IF EXISTS "Users can view their agents" ON public.agents;
 DROP POLICY IF EXISTS "Users can create agents" ON public.agents;
 DROP POLICY IF EXISTS "Users can update their agents" ON public.agents;
 DROP POLICY IF EXISTS "Users can delete their agents" ON public.agents;
 DROP POLICY IF EXISTS "Service role can manage agents" ON public.agents;
 
--- AGENTS TABLE POLICIES
+-- AGENTS TABLE POLICIES (authenticated users only)
 CREATE POLICY "Users can view their agents" ON public.agents
-FOR SELECT TO authenticated, anon
+FOR SELECT TO authenticated
 USING (client_id = auth.uid());
 
 CREATE POLICY "Users can create agents" ON public.agents
-FOR INSERT TO authenticated, anon
+FOR INSERT TO authenticated
 WITH CHECK (client_id = auth.uid());
 
 CREATE POLICY "Users can update their agents" ON public.agents
-FOR UPDATE TO authenticated, anon
+FOR UPDATE TO authenticated
 USING (client_id = auth.uid())
 WITH CHECK (client_id = auth.uid());
 
 CREATE POLICY "Users can delete their agents" ON public.agents
-FOR DELETE TO authenticated, anon
+FOR DELETE TO authenticated
 USING (client_id = auth.uid());
 
--- Allow service role full access to agents
 CREATE POLICY "Service role can manage agents" ON public.agents
 FOR ALL TO service_role
 USING (true)
 WITH CHECK (true);
 
 
--- Drop existing call history policies
+-- Clean slate for call history policies
 DROP POLICY IF EXISTS "Allow service to insert calls" ON public.call_history;
 DROP POLICY IF EXISTS "Users can view calls for their agent" ON public.call_history;
 DROP POLICY IF EXISTS "Service role can manage calls" ON public.call_history;
 
 -- CALL HISTORY TABLE POLICIES
--- Allow anyone to insert calls (n8n webhooks)
-CREATE POLICY "Allow service to insert calls" ON public.call_history
-FOR INSERT TO authenticated, anon, service_role
+-- Only service role can insert calls (from Retell webhooks)
+CREATE POLICY "Service role can insert calls" ON public.call_history
+FOR INSERT TO service_role
 WITH CHECK (true);
 
--- Allow users to view calls for their agents
+-- Users can view calls for their own agents
 CREATE POLICY "Users can view calls for their agent" ON public.call_history
-FOR SELECT TO authenticated, anon
+FOR SELECT TO authenticated
 USING (
   retell_agent_id IN (
     SELECT agents.retell_agent_id FROM agents WHERE agents.client_id = auth.uid()
   )
 );
 
--- Allow service role full access
+-- Service role has full access
 CREATE POLICY "Service role can manage calls" ON public.call_history
 FOR ALL TO service_role
 USING (true)
 WITH CHECK (true);
 
 
--- Drop existing phone number policies
+-- Clean slate for phone number policies
 DROP POLICY IF EXISTS "Users can view their phone numbers" ON public.phone_numbers;
 DROP POLICY IF EXISTS "Users can create phone numbers" ON public.phone_numbers;
 DROP POLICY IF EXISTS "Users can update their phone numbers" ON public.phone_numbers;
 DROP POLICY IF EXISTS "Users can delete their phone numbers" ON public.phone_numbers;
 DROP POLICY IF EXISTS "Service role can manage phone numbers" ON public.phone_numbers;
 
--- PHONE NUMBERS TABLE POLICIES
+-- PHONE NUMBERS TABLE POLICIES (authenticated users only)
 CREATE POLICY "Users can view their phone numbers" ON public.phone_numbers
-FOR SELECT TO authenticated, anon
+FOR SELECT TO authenticated
 USING (client_id = auth.uid());
 
 CREATE POLICY "Users can create phone numbers" ON public.phone_numbers
-FOR INSERT TO authenticated, anon
+FOR INSERT TO authenticated
 WITH CHECK (client_id = auth.uid());
 
 CREATE POLICY "Users can update their phone numbers" ON public.phone_numbers
-FOR UPDATE TO authenticated, anon
+FOR UPDATE TO authenticated
 USING (client_id = auth.uid())
 WITH CHECK (client_id = auth.uid());
 
 CREATE POLICY "Users can delete their phone numbers" ON public.phone_numbers
-FOR DELETE TO authenticated, anon
+FOR DELETE TO authenticated
 USING (client_id = auth.uid());
 
--- Allow service role full access
 CREATE POLICY "Service role can manage phone numbers" ON public.phone_numbers
 FOR ALL TO service_role
 USING (true)
@@ -295,7 +314,6 @@ WITH CHECK (true);
 -- 6. PERFORMANCE INDEXES
 -- ========================================
 
--- Drop indexes if they exist (for clean redeployment)
 DROP INDEX IF EXISTS idx_clients_user_id;
 DROP INDEX IF EXISTS idx_clients_stripe_customer_id;
 DROP INDEX IF EXISTS idx_agents_retell_agent_id;
@@ -308,21 +326,19 @@ DROP INDEX IF EXISTS idx_phone_numbers_client_id;
 DROP INDEX IF EXISTS idx_phone_numbers_agent_id;
 DROP INDEX IF EXISTS idx_phone_numbers_phone_number;
 
--- Critical index for client queries (prevents hanging queries!)
+-- Client indexes
 CREATE INDEX idx_clients_user_id ON public.clients(user_id);
 CREATE INDEX idx_clients_stripe_customer_id ON public.clients(stripe_customer_id) WHERE stripe_customer_id IS NOT NULL;
 
 -- Agent indexes
 CREATE INDEX idx_agents_retell_agent_id ON public.agents(retell_agent_id);
 CREATE INDEX idx_agents_client_id ON public.agents(client_id);
+CREATE INDEX idx_agents_rls_lookup ON public.agents(retell_agent_id, client_id);
 
 -- Call history indexes
 CREATE INDEX idx_call_history_retell_agent_id ON public.call_history(retell_agent_id);
 CREATE INDEX idx_call_history_created_at ON public.call_history(created_at DESC);
 CREATE INDEX idx_call_history_agent_created ON public.call_history(retell_agent_id, created_at DESC);
-
--- Composite index for RLS policy lookups
-CREATE INDEX idx_agents_rls_lookup ON public.agents(retell_agent_id, client_id);
 
 -- Phone number indexes
 CREATE INDEX idx_phone_numbers_client_id ON public.phone_numbers(client_id);
@@ -334,33 +350,24 @@ CREATE INDEX idx_phone_numbers_phone_number ON public.phone_numbers(phone_number
 -- 7. ENABLE REALTIME
 -- ========================================
 
--- Enable realtime for tables (ignore errors if already added)
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.call_history;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$
-BEGIN
+DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.clients;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$
-BEGIN
+DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.agents;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$
-BEGIN
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.call_history;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.phone_numbers;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
+EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 
@@ -368,21 +375,25 @@ END $$;
 -- DEPLOYMENT COMPLETE
 -- ========================================
 
--- Update trigger for phone_numbers table
-DROP TRIGGER IF EXISTS trigger_update_phone_numbers_updated_at ON public.phone_numbers;
-CREATE TRIGGER trigger_update_phone_numbers_updated_at
-BEFORE UPDATE ON public.phone_numbers
-FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column();
-
-
--- Verify configuration
 DO $$
 BEGIN
-  RAISE NOTICE '✅ Schema deployment complete';
-  RAISE NOTICE '✅ RLS policies configured for authenticated, anon, and service_role';
-  RAISE NOTICE '✅ Performance indexes created';
-  RAISE NOTICE '✅ Real-time subscriptions enabled';
-  RAISE NOTICE '✅ All triggers and functions deployed';
-  RAISE NOTICE '✅ Phone numbers table created with RLS and indexes';
+  RAISE NOTICE '========================================';
+  RAISE NOTICE 'SCHEMA DEPLOYMENT COMPLETE';
+  RAISE NOTICE '========================================';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Tables: clients, agents, call_history, phone_numbers';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Auto-triggers:';
+  RAISE NOTICE '  - User signup -> client record created';
+  RAISE NOTICE '  - User deleted -> client + all data deleted (cascade)';
+  RAISE NOTICE '  - Call inserted -> minutes deducted';
+  RAISE NOTICE '  - Agent/phone updated -> timestamp updated';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Security:';
+  RAISE NOTICE '  - RLS enabled on all tables';
+  RAISE NOTICE '  - Only authenticated users can access their own data';
+  RAISE NOTICE '  - Only service_role can insert calls (webhooks)';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Realtime: Enabled on all tables';
+  RAISE NOTICE '========================================';
 END $$;
