@@ -65,17 +65,19 @@ export async function switchAllNumbersToFallback(clientId: string): Promise<{ su
             console.log(`ℹ️ Note: ${pn.phone_number} trunk removal: ${trunkError.message}`);
           }
 
-          // Clear trunkSid and set voiceUrl to TwiML Bin
-          // Setting trunkSid to empty string removes the trunk association
-          await twilioClient
+          // Set voiceUrl to TwiML Bin
+          // The trunk was already removed above via Trunking API
+          console.log(`🔧 Updating ${pn.phone_number} with voiceUrl: ${OUT_OF_MINUTES_TWIML_URL}`);
+
+          const updatedNumber = await twilioClient
             .incomingPhoneNumbers(pn.twilio_sid)
             .update({
-              trunkSid: '',
               voiceUrl: OUT_OF_MINUTES_TWIML_URL,
               voiceMethod: 'POST',
             });
 
           console.log(`✅ Set ${pn.phone_number} to TwiML Bin URL`);
+          console.log(`📋 Updated number config - voiceUrl: ${updatedNumber.voiceUrl}, trunkSid: ${updatedNumber.trunkSid}`);
 
           return { success: true, phone_number: pn.phone_number };
         } catch (error: any) {
