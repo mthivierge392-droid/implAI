@@ -287,14 +287,36 @@ async function handlePhoneNumberSubscription(session: Stripe.Checkout.Session) {
   }
 
   try {
-    // 1. Purchase the phone number from Twilio and assign to SIP Trunk
-    console.log(`📞 Purchasing Twilio number: ${phoneNumber}`);
-    const twilioNumber = await twilioClient.incomingPhoneNumbers.create({
-      phoneNumber: phoneNumber,
-      trunkSid: process.env.TWILIO_TRUNK_SID, // Use SIP Trunk for routing to Retell AI
-    });
+    // 1. Check if user has minutes available
+    const { data: client } = await supabaseAdmin
+      .from('clients')
+      .select('minutes_included, minutes_used')
+      .eq('user_id', userId)
+      .single();
 
-    console.log(`✅ Twilio number purchased: ${twilioNumber.sid}`);
+    const remainingMinutes = client ? (client.minutes_included - client.minutes_used) : 0;
+    const hasMinutes = remainingMinutes > 0;
+
+    // 2. Purchase the phone number from Twilio
+    console.log(`📞 Purchasing Twilio number: ${phoneNumber} (user has ${remainingMinutes} minutes)`);
+    let twilioNumber;
+
+    if (hasMinutes) {
+      // User has minutes - assign to SIP trunk for Retell AI
+      twilioNumber = await twilioClient.incomingPhoneNumbers.create({
+        phoneNumber: phoneNumber,
+        trunkSid: process.env.TWILIO_TRUNK_SID,
+      });
+      console.log(`✅ Twilio number purchased and assigned to SIP trunk: ${twilioNumber.sid}`);
+    } else {
+      // User has no minutes - assign to TwiML Bin
+      twilioNumber = await twilioClient.incomingPhoneNumbers.create({
+        phoneNumber: phoneNumber,
+        voiceUrl: process.env.TWILIO_OUT_OF_MINUTES_TWIML_URL,
+        voiceMethod: 'POST',
+      });
+      console.log(`✅ Twilio number purchased with TwiML Bin (0 minutes): ${twilioNumber.sid}`);
+    }
 
     // 2. Get subscription details
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
