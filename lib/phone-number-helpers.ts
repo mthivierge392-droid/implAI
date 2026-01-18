@@ -47,27 +47,35 @@ export async function switchAllNumbersToFallback(clientId: string): Promise<{ su
     console.log(`✅ Set client ${clientId} status to inactive`);
 
     // Switch all phone numbers to TwiML Bin in parallel
-    // Step 1: Remove from SIP trunk (voiceUrl is ignored while trunk is assigned)
-    // Step 2: Set voiceUrl to TwiML Bin
+    // Step 1: Remove from SIP trunk via Trunking API
+    // Step 2: Clear trunkSid and set voiceUrl to TwiML Bin on the phone number
     const results = await Promise.allSettled(
       phoneNumbers.map(async pn => {
         try {
           // Remove phone number from SIP trunk (unassign, not delete)
-          await twilioClient
-            .trunking.v1
-            .trunks(TRUNK_SID)
-            .phoneNumbers(pn.twilio_sid)
-            .remove();
+          try {
+            await twilioClient
+              .trunking.v1
+              .trunks(TRUNK_SID)
+              .phoneNumbers(pn.twilio_sid)
+              .remove();
+            console.log(`📤 Removed ${pn.phone_number} from SIP trunk`);
+          } catch (trunkError: any) {
+            // Number might not be in trunk, continue anyway
+            console.log(`ℹ️ Note: ${pn.phone_number} trunk removal: ${trunkError.message}`);
+          }
 
-          console.log(`📤 Removed ${pn.phone_number} from SIP trunk`);
-
-          // Set voiceUrl to TwiML Bin
+          // Clear trunkSid and set voiceUrl to TwiML Bin
+          // Setting trunkSid to empty string removes the trunk association
           await twilioClient
             .incomingPhoneNumbers(pn.twilio_sid)
             .update({
+              trunkSid: '',
               voiceUrl: OUT_OF_MINUTES_TWIML_URL,
               voiceMethod: 'POST',
             });
+
+          console.log(`✅ Set ${pn.phone_number} to TwiML Bin URL`);
 
           return { success: true, phone_number: pn.phone_number };
         } catch (error: any) {
@@ -131,18 +139,18 @@ export async function restoreAllNumbersToRealAgents(clientId: string): Promise<{
     console.log(`✅ Set client ${clientId} status to active`);
 
     // Restore all phone numbers back to trunk in parallel
-    // Add phone number back to SIP trunk
+    // Set trunkSid on the phone number to assign it to the SIP trunk
     const results = await Promise.allSettled(
       phoneNumbers.map(async pn => {
         try {
-          // Add phone number back to SIP trunk
+          // Set trunkSid on the phone number to assign to SIP trunk
           await twilioClient
-            .trunking.v1
-            .trunks(TRUNK_SID)
-            .phoneNumbers
-            .create({ phoneNumberSid: pn.twilio_sid });
+            .incomingPhoneNumbers(pn.twilio_sid)
+            .update({
+              trunkSid: TRUNK_SID,
+            });
 
-          console.log(`📥 Added ${pn.phone_number} back to SIP trunk`);
+          console.log(`📥 Assigned ${pn.phone_number} to SIP trunk`);
 
           return { success: true, phone_number: pn.phone_number };
         } catch (error: any) {
