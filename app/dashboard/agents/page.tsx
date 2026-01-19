@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_CONFIG } from '@/lib/constants';
+import { useRealtimePhoneNumbers } from '@/hooks/useRealtimeSubscriptions';
 
 export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
@@ -63,6 +64,9 @@ export default function AgentsPage() {
     },
     staleTime: Infinity, // User ID never changes
   });
+
+  // Enable real-time updates for phone numbers (updates agent cards when phone linked/unlinked)
+  useRealtimePhoneNumbers(userId);
 
   // Fetch client minutes status (separate query for real-time updates)
   // Use different query key to avoid conflicts with MinutesCounter component
@@ -744,10 +748,19 @@ export default function AgentsPage() {
                           </button>
                         </div>
                       )}
-                      {agent.phone_numbers && agent.phone_numbers.length > 0 && (
+                      {agent.phone_numbers && agent.phone_numbers.length > 0 ? (
                         <div className="flex items-center gap-1.5 mt-1">
-                          <Phone className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{agent.phone_numbers[0].phone_number}</span>
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
+                            <Phone className="w-3 h-3 text-primary" />
+                            <span className="text-xs font-medium text-primary">{agent.phone_numbers[0].phone_number}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                            <Phone className="w-3 h-3 text-amber-500" />
+                            <span className="text-xs font-medium text-amber-600 dark:text-amber-500">No phone linked</span>
+                          </div>
                         </div>
                       )}
                     </div>

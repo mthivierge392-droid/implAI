@@ -7,9 +7,11 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Plus, Phone, Trash2, Link as LinkIcon, Search, X, MapPin, Loader2 } from 'lucide-react';
+import { Plus, Phone, Trash2, Link as LinkIcon, Search, X, MapPin, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRealtimePhoneNumbers } from '@/hooks/useRealtimeSubscriptions';
+import { Select } from '@/components/ui/Select';
 
 type PhoneNumber = {
   id: string;
@@ -29,6 +31,10 @@ type Agent = {
 export default function PhoneNumbersPage() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+
+  // Enable real-time updates for phone numbers
+  useRealtimePhoneNumbers(user?.id);
+
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [areaCode, setAreaCode] = useState('');
   const [country, setCountry] = useState('US');
@@ -311,15 +317,16 @@ export default function PhoneNumbersPage() {
 
                     <div className="flex items-center gap-2 lg:ml-4">
                       {/* Agent Selector */}
-                      <div className="flex-1 lg:flex-initial lg:min-w-[200px]">
-                        <select
+                      <div className="flex-1 lg:flex-initial lg:min-w-[220px] relative">
+                        <Select
                           value={number.agent_id || ''}
                           onChange={(e) => linkMutation.mutate({
                             numberId: number.id,
                             agentId: e.target.value || null
                           })}
                           disabled={linkMutation.isPending}
-                          className="w-full px-3 py-2 border border-border rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring hover:border-primary/50 transition-colors"
+                          icon={<User className="w-4 h-4" />}
+                          className={linkMutation.isPending ? 'opacity-50 cursor-wait' : ''}
                         >
                           <option value="">Select agent...</option>
                           {agents.map((agent) => (
@@ -327,7 +334,12 @@ export default function PhoneNumbersPage() {
                               {agent.agent_name}
                             </option>
                           ))}
-                        </select>
+                        </Select>
+                        {linkMutation.isPending && (
+                          <div className="absolute right-12 top-1/2 -translate-y-1/2">
+                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Release Button */}
@@ -390,7 +402,7 @@ export default function PhoneNumbersPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold mb-2">Country</label>
-                  <select
+                  <Select
                     value={country}
                     onChange={(e) => {
                       setCountry(e.target.value);
@@ -398,7 +410,7 @@ export default function PhoneNumbersPage() {
                       setSearchResults([]);
                       setHasSearched(false);
                     }}
-                    className="w-full px-3 py-2.5 border-2 border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring hover:border-primary/50 transition-colors"
+                    icon={<MapPin className="w-4 h-4" />}
                   >
                     <optgroup label="North America">
                       <option value="US">🇺🇸 United States</option>
@@ -429,7 +441,7 @@ export default function PhoneNumbersPage() {
                       <option value="IL">🇮🇱 Israel</option>
                       <option value="ZA">🇿🇦 South Africa</option>
                     </optgroup>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>

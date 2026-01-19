@@ -10,6 +10,7 @@ import { showToast } from '@/components/toast';
 let globalMinutesChannel: any = null;
 let globalCallHistoryChannel: any = null;
 let globalAgentsChannel: any = null;
+let globalPhoneNumbersChannel: any = null;
 
 /**
  * Global real-time subscription for client minutes updates
@@ -301,6 +302,79 @@ export function useRealtimeAgents(userId: string | undefined) {
 
     return () => {
       console.log('[Real-time] Component unmounting, but keeping global agents subscription alive');
+    };
+  }, [userId, queryClient]);
+}
+
+/**
+ * Global real-time subscription for phone numbers table updates
+ * Automatically invalidates React Query cache when phone numbers change
+ * Works across all pages in the dashboard
+ */
+export function useRealtimePhoneNumbers(userId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // If global channel already exists and is active, just return
+    if (globalPhoneNumbersChannel?.state === 'joined') {
+      console.log('[Real-time] Phone numbers subscription already active globally');
+      return;
+    }
+
+    const setupSubscription = () => {
+      // Clean up existing global channel if it exists
+      if (globalPhoneNumbersChannel) {
+        supabase.removeChannel(globalPhoneNumbersChannel);
+        globalPhoneNumbersChannel = null;
+      }
+
+      console.log('[Real-time] Setting up phone numbers subscription for user:', userId);
+
+      const channelName = `phone-numbers-${userId}`;
+
+      globalPhoneNumbersChannel = supabase
+        .channel(channelName, {
+          config: {
+            broadcast: { self: true },
+            presence: { key: userId },
+          },
+        })
+        .on(
+          'postgres_changes',
+          {
+            event: '*', // All events: INSERT, UPDATE, DELETE
+            schema: 'public',
+            table: 'phone_numbers',
+            filter: `client_id=eq.${userId}`,
+          },
+          (payload) => {
+            console.log('[Real-time] Phone number change detected:', payload);
+            // Force immediate refetch of phone number and agent queries
+            queryClient.refetchQueries({ queryKey: ['phone-numbers', userId] });
+            queryClient.refetchQueries({ queryKey: ['agents', userId] }); // Agents show linked phone numbers
+            queryClient.refetchQueries({ queryKey: ['dashboard-stats'] });
+
+            // Also invalidate to mark as stale
+            queryClient.invalidateQueries({ queryKey: ['phone-numbers'] });
+            queryClient.invalidateQueries({ queryKey: ['agents'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+          }
+        )
+        .subscribe((status, err) => {
+          console.log('[Real-time] Phone numbers subscription status:', status, err);
+
+          if (status === 'SUBSCRIBED') {
+            console.log('[Real-time] Phone numbers subscription active');
+          }
+        });
+    };
+
+    setupSubscription();
+
+    return () => {
+      console.log('[Real-time] Component unmounting, but keeping global phone numbers subscription alive');
     };
   }, [userId, queryClient]);
 }
