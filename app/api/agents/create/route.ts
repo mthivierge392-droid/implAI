@@ -63,6 +63,8 @@ export async function POST(request: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          model: 'gpt-5-mini', // Best price/quality/speed balance
+          model_high_priority: true, // Fast tier - lower latency at $0.022/min
           general_prompt: prompt || 'You are a helpful AI assistant. Be professional, friendly, and concise in your responses.',
           general_tools: [],
         }),
