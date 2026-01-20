@@ -119,15 +119,21 @@ export async function POST(request: NextRequest) {
         (t: any) => !(t.type === 'transfer_call' && t.name === integration.function_name)
       );
 
-      // Add transfer call tool
+      // Add transfer call tool with proper nested structure
       newTools = [
         ...filteredTools,
         {
           type: 'transfer_call',
           name: integration.function_name,
-          number: integration.phone_number,
           description: integration.transfer_description,
-          show_transferee_as_caller: true,
+          transfer_destination: {
+            type: 'predefined',
+            number: integration.phone_number,
+          },
+          transfer_option: {
+            type: 'cold_transfer',
+            show_transferee_as_caller: true,
+          },
         },
       ];
 
