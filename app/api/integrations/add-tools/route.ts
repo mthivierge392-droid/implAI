@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { agent_id, integration } = requestSchema.parse(body);
 
-    // Verify agent belongs to user
+    // Verify agent belongs to user and get current integrations
     const { data: agent, error: agentError } = await supabaseAdmin
       .from('agents')
-      .select('id, retell_llm_id, retell_agent_id, agent_name')
+      .select('id, retell_llm_id, retell_agent_id, agent_name, transfer_calls, cal_com')
       .eq('id', agent_id)
       .eq('client_id', user.id)
       .single();
@@ -135,6 +135,39 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`✅ Successfully updated LLM ${agent.retell_llm_id} with new tools`);
+
+    // Save to Supabase for caching (no API keys stored!)
+    if (integration.type === 'cal_com') {
+      await supabaseAdmin
+        .from('agents')
+        .update({
+          cal_com: {
+            event_type_id: String(integration.event_type_id),
+            timezone: integration.timezone || 'Default',
+          },
+        })
+        .eq('id', agent_id);
+      console.log('✅ Saved Cal.com config to Supabase');
+    } else if (integration.type === 'transfer_call') {
+      // Get existing transfer calls or empty array
+      const existingTransfers = (agent.transfer_calls as any[]) || [];
+
+      // Remove if same name exists (update), then add new one
+      const updatedTransfers = [
+        ...existingTransfers.filter((t: any) => t.name !== integration.function_name),
+        {
+          name: integration.function_name,
+          phone_number: integration.phone_number,
+          description: integration.transfer_description,
+        },
+      ];
+
+      await supabaseAdmin
+        .from('agents')
+        .update({ transfer_calls: updatedTransfers })
+        .eq('id', agent_id);
+      console.log('✅ Saved transfer_call config to Supabase');
+    }
 
     return NextResponse.json({
       success: true,

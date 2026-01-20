@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS public.agents (
   prompt text,
   voice text DEFAULT '11labs-Adrian'::text,
   language text DEFAULT 'en-US'::text,
+  transfer_calls jsonb DEFAULT NULL,  -- [{ "name": "...", "phone_number": "...", "description": "..." }]
+  cal_com jsonb DEFAULT NULL,         -- { "event_type_id": "...", "timezone": "..." }
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   PRIMARY KEY (id),

@@ -12,6 +12,7 @@ const retell = new Retell({
 const updateAgentSchema = z.object({
   agent_id: z.string().min(1, "Agent ID required").max(100),
   voice_id: z.string().optional(),
+  voice_model: z.enum(['eleven_turbo_v2', 'eleven_flash_v2', 'eleven_turbo_v2_5', 'eleven_flash_v2_5', 'eleven_multilingual_v2']).optional(),
   agent_name: z.string().optional(),
   language: z.string().optional(),
 });
@@ -22,7 +23,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     console.log('Update agent request body:', body);
-    const { agent_id, voice_id, agent_name, language } = updateAgentSchema.parse(body);
+    const { agent_id, voice_id, voice_model, agent_name, language } = updateAgentSchema.parse(body);
 
     // 🔒 AUTHENTICATION CHECK
     const authHeader = request.headers.get('authorization');
@@ -69,25 +70,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     // ✅ Use Retell SDK to update agent
-    console.log(`Updating agent ${agent_id} - voice: ${voice_id}, language: ${language}, name: ${agent_name}`);
+    console.log(`Updating agent ${agent_id} - voice: ${voice_id}, voice_model: ${voice_model}, language: ${language}`);
 
     const updateParams: any = {};
     if (voice_id) updateParams.voice_id = voice_id;
+    if (voice_model) updateParams.voice_model = voice_model;
     if (agent_name) updateParams.agent_name = agent_name;
     if (language) updateParams.language = language;
 
     const updatedAgent = await retell.agent.update(agent_id, updateParams);
 
     console.log('Agent updated successfully via SDK');
-
-    // Publish the agent to make changes live
-    try {
-      await retell.agent.publish(agent_id);
-      console.log('Agent published successfully');
-    } catch (publishError) {
-      console.warn('Agent publish warning:', publishError);
-      // Don't fail if publish fails
-    }
 
     // Update database
     const dbUpdates: any = {};

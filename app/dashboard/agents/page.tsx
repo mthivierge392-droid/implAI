@@ -28,6 +28,7 @@ export default function AgentsPage() {
   // Settings form state
   const [editingPrompt, setEditingPrompt] = useState('');
   const [editingVoice, setEditingVoice] = useState('');
+  const [editingVoiceModel, setEditingVoiceModel] = useState('eleven_turbo_v2');
   const [editingLanguage, setEditingLanguage] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -40,6 +41,13 @@ export default function AgentsPage() {
   const [calApiKey, setCalApiKey] = useState('');
   const [calEventTypeId, setCalEventTypeId] = useState('');
   const [calTimezone, setCalTimezone] = useState('');
+
+  // Saved integrations state (per agent)
+  type TransferCallIntegration = { name: string; phone_number: string; description: string };
+  type CalComIntegration = { event_type_id: string; timezone: string };
+  const [savedTransferCalls, setSavedTransferCalls] = useState<TransferCallIntegration[]>([]);
+  const [savedCalCom, setSavedCalCom] = useState<CalComIntegration | null>(null);
+  const [deletingIntegration, setDeletingIntegration] = useState<string | null>(null);
 
   // Create Agent Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -109,9 +117,14 @@ export default function AgentsPage() {
     setSelectedAgent(agent);
     setEditingPrompt(agent.prompt || '');
     setEditingVoice(agent.voice || '11labs-Adrian');
+    setEditingVoiceModel('eleven_turbo_v2');
     setEditingLanguage(agent.language || 'en-US');
     setActiveTab('settings');
     setIntegrationType(null);
+
+    // Load integrations from cached agent data (stored in Supabase)
+    setSavedTransferCalls(agent.transfer_calls || []);
+    setSavedCalCom(agent.cal_com || null);
   };
 
   // Close agent settings panel
@@ -164,6 +177,7 @@ export default function AgentsPage() {
         body: JSON.stringify({
           agent_id: selectedAgent.retell_agent_id,
           voice_id: editingVoice,
+          voice_model: editingVoiceModel,
           language: editingLanguage,
         }),
       });
@@ -235,6 +249,27 @@ export default function AgentsPage() {
       if (!response.ok) throw new Error(result.error || 'Failed to add integration');
 
       showToast(result.message || 'Integration added!', 'success');
+
+      // Update local state immediately so user can see it
+      if (integrationType === 'transfer_call') {
+        setSavedTransferCalls(prev => [
+          ...prev.filter(t => t.name !== transferFunctionName), // Remove if exists (update case)
+          {
+            name: transferFunctionName,
+            phone_number: phoneNumber,
+            description: transferDescription,
+          }
+        ]);
+      } else if (integrationType === 'cal_com') {
+        setSavedCalCom({
+          event_type_id: calEventTypeId,
+          timezone: calTimezone || 'Default',
+        });
+      }
+
+      // Invalidate agents cache so next load has updated data
+      queryClient.invalidateQueries({ queryKey: ['agents', userId] });
+
       setIntegrationType(null);
       setPhoneNumber('');
       setTransferDescription('');
@@ -246,6 +281,46 @@ export default function AgentsPage() {
       showToast(error instanceof Error ? error.message : 'Failed to add integration', 'error');
     } finally {
       setSubmittingIntegration(false);
+    }
+  };
+
+  // Delete integration
+  const handleDeleteIntegration = async (toolType: 'transfer_call' | 'cal_com', toolName?: string) => {
+    if (!selectedAgent) return;
+    setDeletingIntegration(toolName || toolType);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch('/api/integrations/remove-tool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          agent_id: selectedAgent.id,
+          tool_type: toolType,
+          ...(toolName && { tool_name: toolName }),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to remove integration');
+
+      // Update local state
+      if (toolType === 'transfer_call' && toolName) {
+        setSavedTransferCalls(prev => prev.filter(t => t.name !== toolName));
+      } else if (toolType === 'cal_com') {
+        setSavedCalCom(null);
+      }
+
+      // Invalidate agents cache so next load has updated data
+      queryClient.invalidateQueries({ queryKey: ['agents', userId] });
+
+      showToast(result.message || 'Integration removed', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to remove integration', 'error');
+    } finally {
+      setDeletingIntegration(null);
     }
   };
 
@@ -548,6 +623,29 @@ export default function AgentsPage() {
                     </Select>
                   </div>
 
+                  {/* Voice Model */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice Model</label>
+                    <Select
+                      value={editingVoiceModel}
+                      onChange={(e) => setEditingVoiceModel(e.target.value)}
+                      icon={<Zap className="w-4 h-4" />}
+                    >
+                      <optgroup label="English Only">
+                        <option value="eleven_turbo_v2">Turbo v2 - Fast, High Quality</option>
+                        <option value="eleven_flash_v2">Flash v2 - Fastest, Medium Quality</option>
+                      </optgroup>
+                      <optgroup label="Multilingual">
+                        <option value="eleven_turbo_v2_5">Turbo v2.5 - Fast, High Quality</option>
+                        <option value="eleven_flash_v2_5">Flash v2.5 - Fastest, Medium Quality</option>
+                        <option value="eleven_multilingual_v2">Multilingual v2 - Slow, Highest Quality</option>
+                      </optgroup>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Some voices only support specific models. If saving fails, try a different model.
+                    </p>
+                  </div>
+
                   {/* Language */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Language</label>
@@ -604,6 +702,83 @@ export default function AgentsPage() {
                 <div className="space-y-6">
                   {!integrationType ? (
                     <>
+                      {/* Active Integrations Section */}
+                      {(savedTransferCalls.length > 0 || savedCalCom) && (
+                        <div className="space-y-3 mb-6">
+                          <h4 className="text-sm font-medium text-foreground">Active Integrations</h4>
+
+                          {/* Saved Transfer Calls */}
+                          {savedTransferCalls.map((transfer) => (
+                            <div
+                              key={transfer.name}
+                              className="p-3 border border-blue-500/30 bg-blue-500/5 rounded-lg"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-md bg-blue-500/10 flex items-center justify-center">
+                                    <Phone className="w-4 h-4 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">{transfer.name}</p>
+                                    <p className="text-xs text-muted-foreground">{transfer.phone_number}</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteIntegration('transfer_call', transfer.name)}
+                                  disabled={deletingIntegration === transfer.name}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                                >
+                                  {deletingIntegration === transfer.name ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-2 pl-11">{transfer.description}</p>
+                            </div>
+                          ))}
+
+                          {/* Saved Cal.com */}
+                          {savedCalCom && (
+                            <div className="p-3 border border-purple-500/30 bg-purple-500/5 rounded-lg">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-md bg-purple-500/10 flex items-center justify-center">
+                                    <Calendar className="w-4 h-4 text-purple-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium">Cal.com Booking</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Event ID: {savedCalCom.event_type_id} · TZ: {savedCalCom.timezone}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteIntegration('cal_com')}
+                                  disabled={deletingIntegration === 'cal_com'}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                                >
+                                  {deletingIntegration === 'cal_com' ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Add New Integration Section */}
+                      <h4 className="text-sm font-medium text-foreground">
+                        {savedTransferCalls.length > 0 || savedCalCom ? 'Add More' : 'Available Integrations'}
+                      </h4>
                       <p className="text-sm text-muted-foreground">
                         Add capabilities to your agent by connecting integrations.
                       </p>
@@ -623,28 +798,30 @@ export default function AgentsPage() {
                               Forward calls to a human when needed
                             </p>
                           </div>
-                          <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </button>
 
-                      {/* Cal.com */}
-                      <button
-                        onClick={() => setIntegrationType('cal_com')}
-                        className="w-full p-4 border border-border rounded-lg hover:border-primary hover:bg-accent/50 transition-all text-left group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                            <Calendar className="w-5 h-5 text-purple-500" />
+                      {/* Cal.com - Hide if already configured */}
+                      {!savedCalCom && (
+                        <button
+                          onClick={() => setIntegrationType('cal_com')}
+                          className="w-full p-4 border border-border rounded-lg hover:border-primary hover:bg-accent/50 transition-all text-left group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                              <Calendar className="w-5 h-5 text-purple-500" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-medium text-sm">Cal.com Booking</h4>
+                              <p className="text-xs text-muted-foreground">
+                                Check availability & book appointments
+                              </p>
+                            </div>
+                            <Plus className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                           </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">Cal.com Booking</h4>
-                            <p className="text-xs text-muted-foreground">
-                              Check availability & book appointments
-                            </p>
-                          </div>
-                          <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                        </div>
-                      </button>
+                        </button>
+                      )}
                     </>
                   ) : integrationType === 'transfer_call' ? (
                     <div className="space-y-4">

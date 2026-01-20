@@ -18,6 +18,17 @@ export type Client = {
   created_at: string;
 };
 
+export type TransferCallIntegration = {
+  name: string;
+  phone_number: string;
+  description: string;
+};
+
+export type CalComIntegration = {
+  event_type_id: string;
+  timezone: string;
+};
+
 export type Agent = {
   id: string;
   client_id: string;
@@ -27,6 +38,8 @@ export type Agent = {
   prompt: string;
   voice: string;
   language?: string;
+  transfer_calls: TransferCallIntegration[] | null;
+  cal_com: CalComIntegration | null;
   created_at: string;
   updated_at: string;
 };
