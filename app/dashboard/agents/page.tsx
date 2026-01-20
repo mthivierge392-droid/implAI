@@ -7,13 +7,11 @@ import { Agent } from '@/lib/supabase';
 import { X, Loader2, MessageSquare, Edit3, Plug, Phone, Calendar, Trash2, Plus } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
-import { cn } from '@/lib/utils';
 import { siteConfig } from '@/config/site';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { API_CONFIG } from '@/lib/constants';
 import { useRealtimePhoneNumbers } from '@/hooks/useRealtimeSubscriptions';
 
 export default function AgentsPage() {
@@ -408,7 +406,7 @@ export default function AgentsPage() {
         throw new Error(errorData.error || 'Failed to create agent');
       }
 
-      const data = await response.json();
+      await response.json();
 
       showToast(`Agent "${newAgentName}" created successfully!`, 'success');
 
@@ -463,9 +461,19 @@ export default function AgentsPage() {
         showToast('Please fill in all required fields', 'error');
         return;
       }
+      // Validate function name format
+      if (!/^[a-zA-Z0-9_-]+$/.test(transferFunctionName)) {
+        showToast('Function name can only contain letters, numbers, underscores, and dashes', 'error');
+        return;
+      }
     } else if (integrationType === 'cal_com') {
       if (!calApiKey.trim() || !calEventTypeId.trim()) {
         showToast('Please fill in all required fields', 'error');
+        return;
+      }
+      // Validate event type ID is a number
+      if (isNaN(Number(calEventTypeId))) {
+        showToast('Event Type ID must be a number', 'error');
         return;
       }
     }
@@ -475,52 +483,57 @@ export default function AgentsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !session.user) {
-        showToast('Please log in to submit a request', 'error');
+        showToast('Please log in', 'error');
         setSubmittingRequest(false);
         return;
       }
 
-      const requestData: any = {
-        user_email: session.user.email || 'Unknown',
-        user_id: session.user.id,
-        agent_id: selectedAgentForIntegration.id,
-        agent_name: selectedAgentForIntegration.agent_name,
-        retell_agent_id: selectedAgentForIntegration.retell_agent_id,
-        retell_llm_id: selectedAgentForIntegration.retell_llm_id,
-        integration_type: integrationType,
-      };
+      // Build integration payload for direct API call
+      let integration: any;
 
       if (integrationType === 'transfer_call') {
-        requestData.phone_number = phoneNumber;
-        requestData.transfer_description = transferDescription;
-        requestData.transfer_function_name = transferFunctionName;
+        integration = {
+          type: 'transfer_call',
+          phone_number: phoneNumber,
+          transfer_description: transferDescription,
+          function_name: transferFunctionName,
+        };
       } else if (integrationType === 'cal_com') {
-        requestData.cal_api_key = calApiKey;
-        requestData.cal_event_type_id = calEventTypeId;
-        if (calTimezone.trim()) {
-          requestData.cal_timezone = calTimezone;
-        }
+        integration = {
+          type: 'cal_com',
+          cal_api_key: calApiKey,
+          event_type_id: Number(calEventTypeId),
+          ...(calTimezone.trim() && { timezone: calTimezone }),
+        };
       }
 
-      const response = await fetch('/api/integrations/request', {
+      // Call the new direct integration API
+      const response = await fetch('/api/integrations/add-tools', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          agent_id: selectedAgentForIntegration.id,
+          integration,
+        }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to submit request');
+        throw new Error(result.error || 'Failed to add integration');
       }
 
-      showToast(result.message || 'Integration request sent successfully!', 'success');
+      showToast(result.message || 'Integration added successfully!', 'success');
       handleCloseIntegrationModal();
+
+      // Refresh agents to show updated integrations
+      queryClient.invalidateQueries({ queryKey: ['agents', userId] });
     } catch (error) {
-      console.error('Error submitting integration request:', error);
-      showToast(error instanceof Error ? error.message : 'Failed to submit request. Please try again.', 'error');
+      console.error('Error adding integration:', error);
+      showToast(error instanceof Error ? error.message : 'Failed to add integration. Please try again.', 'error');
     } finally {
       setSubmittingRequest(false);
     }
@@ -773,7 +786,7 @@ export default function AgentsPage() {
                       className="gap-2 flex-shrink-0"
                     >
                       <Plug className="w-4 h-4" />
-                      <span className="hidden sm:inline">Request Integration</span>
+                      <span className="hidden sm:inline">Add Integration</span>
                     </Button>
                     <Button
                       size="sm"
@@ -1041,7 +1054,7 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Integration Request Modal */}
+      {/* Integration Modal */}
       {selectedAgentForIntegration && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
@@ -1053,7 +1066,7 @@ export default function AgentsPage() {
           >
             <div className="flex items-center justify-between p-4 md:p-6 border-b border-border sticky top-0 bg-card z-10">
               <div>
-                <h3 className="text-xl font-semibold text-card-foreground">Request Integration</h3>
+                <h3 className="text-xl font-semibold text-card-foreground">Add Integration</h3>
                 <p className="text-sm text-muted-foreground">{selectedAgentForIntegration.agent_name}</p>
               </div>
               <Button
@@ -1187,9 +1200,9 @@ export default function AgentsPage() {
                     <h4 className="font-medium text-foreground">Cal.com Configuration</h4>
                   </div>
 
-                  <div className="p-4 bg-muted/30 rounded-lg border border-border mb-4">
-                    <p className="text-sm text-muted-foreground">
-                      📅 We'll configure <strong>both</strong> Cal.com functions for you: <strong>check availability</strong> and <strong>book appointment</strong>. Just provide your API credentials below.
+                  <div className="p-4 bg-green-500/10 rounded-lg border border-green-500/20 mb-4">
+                    <p className="text-sm text-green-700 dark:text-green-400">
+                      Your agent will instantly be able to <strong>check availability</strong> and <strong>book appointments</strong> via Cal.com. No manual setup required!
                     </p>
                   </div>
 
@@ -1262,9 +1275,9 @@ export default function AgentsPage() {
                   {submittingRequest ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Sending...
+                      Adding...
                     </>
-                  ) : 'Submit Request'}
+                  ) : 'Add Integration'}
                 </Button>
               </div>
             )}
