@@ -2,13 +2,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import Retell from 'retell-sdk';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const RETELL_API_KEY = process.env.RETELL_API_KEY!;
+const retell = new Retell({
+  apiKey: process.env.RETELL_API_KEY!,
+});
 
 // Schema for Cal.com integration
 const calComSchema = z.object({
@@ -64,22 +67,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔧 Adding ${integration.type} integration to agent "${agent.agent_name}"`);
 
-    // Get current LLM config to preserve existing tools
-    const llmResponse = await fetch(
-      `https://api.retellai.com/get-retell-llm/${agent.retell_llm_id}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${RETELL_API_KEY}`,
-        },
-      }
-    );
-
-    if (!llmResponse.ok) {
-      console.error('Failed to get LLM config');
-      return NextResponse.json({ error: 'Failed to get agent configuration' }, { status: 500 });
-    }
-
-    const llmConfig = await llmResponse.json();
+    // Get current LLM config using SDK
+    const llmConfig = await retell.llm.retrieve(agent.retell_llm_id);
     const existingTools = llmConfig.general_tools || [];
 
     // Build new tools based on integration type
@@ -140,31 +129,11 @@ export async function POST(request: NextRequest) {
       console.log(`✅ Added transfer_call tool: ${integration.function_name} -> ${integration.phone_number}`);
     }
 
-    // Update LLM with new tools
-    const updateResponse = await fetch(
-      `https://api.retellai.com/update-retell-llm/${agent.retell_llm_id}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${RETELL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          general_tools: newTools,
-        }),
-      }
-    );
+    // Update LLM with new tools using SDK
+    await retell.llm.update(agent.retell_llm_id, {
+      general_tools: newTools as any,
+    });
 
-    if (!updateResponse.ok) {
-      const errorData = await updateResponse.json();
-      console.error('❌ Failed to update LLM:', errorData);
-      return NextResponse.json(
-        { error: errorData.message || 'Failed to add integration' },
-        { status: 500 }
-      );
-    }
-
-    const updatedLlm = await updateResponse.json();
     console.log(`✅ Successfully updated LLM ${agent.retell_llm_id} with new tools`);
 
     return NextResponse.json({
@@ -185,7 +154,7 @@ export async function POST(request: NextRequest) {
 
     console.error('❌ Error adding integration:', error);
     return NextResponse.json(
-      { error: 'Failed to add integration' },
+      { error: error instanceof Error ? error.message : 'Failed to add integration' },
       { status: 500 }
     );
   }

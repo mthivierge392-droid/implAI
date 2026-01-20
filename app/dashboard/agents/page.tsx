@@ -148,7 +148,11 @@ export default function AgentsPage() {
         }),
       });
 
-      if (!promptResponse.ok) throw new Error('Prompt update failed');
+      if (!promptResponse.ok) {
+        const errData = await promptResponse.json().catch(() => ({}));
+        console.error('Prompt update failed:', errData);
+        throw new Error(errData.error || 'Prompt update failed');
+      }
 
       // Update agent voice/language
       const agentResponse = await fetch('/api/retell/update-agent', {
@@ -164,7 +168,11 @@ export default function AgentsPage() {
         }),
       });
 
-      if (!agentResponse.ok) throw new Error('Agent update failed');
+      if (!agentResponse.ok) {
+        const errData = await agentResponse.json().catch(() => ({}));
+        console.error('Agent update failed:', errData);
+        throw new Error(errData.error || 'Agent update failed');
+      }
 
       // Update database
       await supabase
@@ -176,7 +184,7 @@ export default function AgentsPage() {
       showToast('Settings saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving:', error);
-      showToast('Failed to save settings', 'error');
+      showToast(error instanceof Error ? error.message : 'Failed to save settings', 'error');
     } finally {
       setSaving(false);
     }
