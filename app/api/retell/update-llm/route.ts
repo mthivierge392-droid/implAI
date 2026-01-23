@@ -12,6 +12,7 @@ const retell = new Retell({
 const updateLLMSchema = z.object({
   llm_id: z.string().min(1, "LLM ID required").max(100),
   general_prompt: z.string().max(50000), // Allow empty prompts
+  retell_agent_id: z.string().optional(), // Agent ID to publish after update
 });
 
 export async function PATCH(request: NextRequest) {
@@ -19,7 +20,7 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { llm_id, general_prompt } = updateLLMSchema.parse(body);
+    const { llm_id, general_prompt, retell_agent_id } = updateLLMSchema.parse(body);
 
     // 🔒 AUTHENTICATION CHECK
     const authHeader = request.headers.get('authorization');
@@ -55,7 +56,7 @@ export async function PATCH(request: NextRequest) {
 
     const { data: agent, error: agentError } = await serviceSupabase
       .from('agents')
-      .select('id')
+      .select('id, retell_agent_id')
       .eq('retell_llm_id', llm_id)
       .eq('client_id', user.id)
       .single();
@@ -72,6 +73,15 @@ export async function PATCH(request: NextRequest) {
     });
 
     console.log('LLM updated successfully via SDK');
+
+    // ✅ Publish the agent to make changes live
+    // Without publishing, updates only affect the draft version
+    const agentIdToPublish = retell_agent_id || agent.retell_agent_id;
+    if (agentIdToPublish) {
+      console.log(`Publishing agent ${agentIdToPublish} to make LLM changes live...`);
+      await retell.agent.publish(agentIdToPublish);
+      console.log('Agent published successfully');
+    }
 
     return NextResponse.json(updatedLlm);
 

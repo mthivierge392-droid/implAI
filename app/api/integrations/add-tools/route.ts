@@ -136,6 +136,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Successfully updated LLM ${agent.retell_llm_id} with new tools`);
 
+    // Publish the agent to make changes live
+    console.log(`📢 Publishing agent ${agent.retell_agent_id}...`);
+    await retell.agent.publish(agent.retell_agent_id);
+    console.log('✅ Agent published successfully');
+
     // Save to Supabase for caching (no API keys stored!)
     if (integration.type === 'cal_com') {
       await supabaseAdmin

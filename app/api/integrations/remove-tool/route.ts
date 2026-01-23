@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Verify agent belongs to user and get current integrations
     const { data: agent, error: agentError } = await supabaseAdmin
       .from('agents')
-      .select('id, retell_llm_id, agent_name, transfer_calls, cal_com')
+      .select('id, retell_llm_id, retell_agent_id, agent_name, transfer_calls, cal_com')
       .eq('id', agent_id)
       .eq('client_id', user.id)
       .single();
@@ -83,6 +83,11 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`✅ Successfully updated LLM ${agent.retell_llm_id}`);
+
+    // Publish the agent to make changes live
+    console.log(`📢 Publishing agent ${agent.retell_agent_id}...`);
+    await retell.agent.publish(agent.retell_agent_id);
+    console.log('✅ Agent published successfully');
 
     // Update Supabase to remove cached integration
     if (tool_type === 'cal_com') {

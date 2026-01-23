@@ -82,6 +82,11 @@ export async function PATCH(request: NextRequest) {
 
     console.log('Agent updated successfully via SDK');
 
+    // ✅ Publish the agent to make changes live
+    console.log(`Publishing agent ${agent_id} to make changes live...`);
+    await retell.agent.publish(agent_id);
+    console.log('Agent published successfully');
+
     // Update database
     const dbUpdates: any = {};
     if (voice_id) dbUpdates.voice = voice_id;

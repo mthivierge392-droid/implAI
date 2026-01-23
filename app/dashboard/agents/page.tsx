@@ -158,6 +158,7 @@ export default function AgentsPage() {
         body: JSON.stringify({
           llm_id: selectedAgent.retell_llm_id,
           general_prompt: editingPrompt,
+          retell_agent_id: selectedAgent.retell_agent_id,
         }),
       });
 
